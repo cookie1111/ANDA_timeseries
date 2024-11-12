@@ -826,15 +826,16 @@ def split_label_condition_skew(
                                 for label in np.arange(0, max_label+1).tolist()}
             
             print(f'Client {client_Count} rotation mapping: {rotation_mapping}') if verbose else None
-            client_Count += 1
 
             # Check if label_map is already in the list, otherwise append
             if rotation_mapping not in list_r_maps:
-                dict_r_maps[i] = n_clusters
+                dict_r_maps[client_Count] = n_clusters
                 list_r_maps.append(rotation_mapping)
                 n_clusters += 1
             else: # if exists, get the index
-                dict_r_maps[i] = list_r_maps.index(rotation_mapping)
+                dict_r_maps[client_Count] = list_r_maps.index(rotation_mapping)
+
+            client_Count += 1
 
             train_rotations = [rotation_mapping[label.item()] for label in client_data_train['labels']]
             test_rotations = [rotation_mapping[label.item()] for label in client_data_test['labels']]
