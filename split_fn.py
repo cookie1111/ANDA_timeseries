@@ -809,6 +809,10 @@ def split_label_condition_skew(
     basic_split_data_train = split_basic(train_features, train_labels, client_number)
     basic_split_data_test = split_basic(test_features, test_labels, client_number)
 
+    n_clusters = 0
+    list_r_maps = []
+    dict_r_maps = {}
+
     # Example usage within the split_label_condition_skew function
     if set_rotation:
         client_Count = 0
@@ -823,6 +827,14 @@ def split_label_condition_skew(
             
             print(f'Client {client_Count} rotation mapping: {rotation_mapping}') if verbose else None
             client_Count += 1
+
+            # Check if label_map is already in the list, otherwise append
+            if rotation_mapping not in list_r_maps:
+                dict_r_maps[i] = n_clusters
+                list_r_maps.append(rotation_mapping)
+                n_clusters += 1
+            else: # if exists, get the index
+                dict_r_maps[i] = list_r_maps.index(rotation_mapping)
 
             train_rotations = [rotation_mapping[label.item()] for label in client_data_train['labels']]
             test_rotations = [rotation_mapping[label.item()] for label in client_data_test['labels']]
@@ -859,7 +871,7 @@ def split_label_condition_skew(
             'train_labels': basic_split_data_train[i]['labels'],
             'test_features': basic_split_data_test[i]['features'],
             'test_labels': basic_split_data_test[i]['labels'],
-            'cluster': -1
+            'cluster': dict_r_maps[i]
         }
 
         rearranged_data.append(client_data)
