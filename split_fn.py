@@ -590,6 +590,9 @@ def split_feature_condition_skew(
     rearranged_data = []
 
     print("Showing the label mapping for each client..") if verbose else None
+    n_clusters = 0
+    list_label_maps = []
+    dict_label_maps = {}
 
     for i in range(client_number):
 
@@ -602,6 +605,14 @@ def split_feature_condition_skew(
         label_map = {original: permuted for original, permuted in zip(mixing_label_list, permuted_label_list)}
 
         print(f'Client {i+1} - Label Mapping: {label_map}') if verbose else None
+
+        # Check if label_map is already in the list, otherwise append
+        if label_map not in list_label_maps:
+            dict_label_maps[i] = n_clusters
+            list_label_maps.append(label_map)
+            n_clusters += 1
+        else: # if exists, get the index
+            dict_label_maps[i] = list_label_maps.index(label_map)
 
         new_train_labels = basic_split_data_train[i]['labels'].clone()
         new_test_labels = basic_split_data_test[i]['labels'].clone()
@@ -622,7 +633,7 @@ def split_feature_condition_skew(
             'train_labels': new_train_labels,
             'test_features': basic_split_data_test[i]['features'],
             'test_labels': new_test_labels,
-            'cluster': -1
+            'cluster': dict_label_maps[i]
         }
         # Append the new dictionary to the list
         rearranged_data.append(client_data)
