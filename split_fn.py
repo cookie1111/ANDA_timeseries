@@ -526,7 +526,7 @@ def split_label_skew_unbalanced(
 
     return rearranged_data
 
-def split_feature_condition_skew(
+def split_label_condition_skew(
     train_features: torch.Tensor,
     train_labels: torch.Tensor,
     test_features: torch.Tensor,
@@ -540,7 +540,7 @@ def split_feature_condition_skew(
     verbose: bool = False
 ) -> list:
     """
-    P(x|y) differs across clients by label swapping.
+    P(y|x) differs across clients by label swapping.
 
     Random mode: randomly choose which labels are in the swapping pool. (#mixing_label_number)
     Non-random mode: a list of labels are provided to be swapped.
@@ -640,7 +640,7 @@ def split_feature_condition_skew(
     
     return rearranged_data
 
-def split_feature_condition_skew_unbalanced(
+def split_label_condition_skew_unbalanced(
     train_features: torch.Tensor,
     train_labels: torch.Tensor,
     test_features: torch.Tensor,
@@ -656,7 +656,7 @@ def split_feature_condition_skew_unbalanced(
     verbose: bool = False
 ) -> list:
     """
-    P(x|y) differs across clients by label swapping.
+    P(y|x) differs across clients by label swapping.
 
     Random mode: randomly choose which labels are in the swapping pool. (#mixing_label_number)
     Non-random mode: a list of labels are provided to be swapped.
@@ -745,7 +745,7 @@ def split_feature_condition_skew_unbalanced(
     
     return rearranged_data
 
-def split_label_condition_skew(
+def split_feature_condition_skew(
     train_features: torch.Tensor,
     train_labels: torch.Tensor,
     test_features: torch.Tensor,
@@ -763,7 +763,7 @@ def split_label_condition_skew(
     verbose: bool = False
 ) -> list:
     """
-    P(y|x) differs across clients by targeted rotation/coloring.
+    P(x|y) differs across clients by targeted rotation/coloring.
 
     Random mode: randomly choose which labels are to be rotated/colored. (#rotated_label_number/#colored_label_number)
     Non-random mode: a list of labels are provided to be rotated/colored.
@@ -879,7 +879,7 @@ def split_label_condition_skew(
             
     return rearranged_data
 
-def split_label_condition_skew_unbalanced(
+def split_feature_condition_skew_unbalanced(
     train_features: torch.Tensor,
     train_labels: torch.Tensor,
     test_features: torch.Tensor,
@@ -899,7 +899,7 @@ def split_label_condition_skew_unbalanced(
     verbose: bool = False
 ) -> list:
     """
-    P(y|x) differs across clients by targeted rotation/coloring.
+    P(x|y) differs across clients by targeted rotation/coloring.
 
     Random mode: randomly choose which labels are to be rotated/colored. (#rotated_label_number/#colored_label_number)
     Non-random mode: a list of labels are provided to be rotated/colored.
@@ -1007,7 +1007,7 @@ def split_label_condition_skew_unbalanced(
             
     return rearranged_data
 
-def split_feature_condition_skew_with_label_skew(
+def split_label_condition_skew_with_label_skew(
     train_features: torch.Tensor,
     train_labels: torch.Tensor, 
     test_features: torch.Tensor,
@@ -1023,7 +1023,7 @@ def split_feature_condition_skew_with_label_skew(
     verbose: bool = False
 ) -> list:
     '''
-    P(x|y) differs across clients by label swapping while clients already label skewed.
+    P(y|x) differs across clients by label swapping while clients already label skewed.
 
     Random mode: randomly choose which labels are in the swapping pool. (#mixing_label_number)
     Non-random mode: a list of labels are provided to be swapped.
@@ -1127,7 +1127,7 @@ def split_feature_condition_skew_with_label_skew(
 
     return rearranged_data
 
-def split_label_condition_skew_with_label_skew(
+def split_feature_condition_skew_with_label_skew(
     train_features: torch.Tensor,
     train_labels: torch.Tensor, 
     test_features: torch.Tensor,
@@ -1147,7 +1147,7 @@ def split_label_condition_skew_with_label_skew(
     verbose: bool = False
 ) -> list:
     '''
-    P(y|x) differs across clients by targeted rotation/coloring while clients already label skewed.
+    P(x|y) differs across clients by targeted rotation/coloring while clients already label skewed.
 
     Random mode: randomly choose which labels are to be rotated/colored. (#rotated_label_number/#colored_label_number)
     Non-random mode: a list of labels are provided to be rotated/colored.
@@ -1445,7 +1445,7 @@ def split_label_skew_strict(
 
     return rearranged_data
 
-def split_feature_condition_skew_strict(
+def split_label_condition_skew_strict(
     train_features: torch.Tensor,
     train_labels: torch.Tensor,
     test_features: torch.Tensor,
@@ -1457,7 +1457,7 @@ def split_feature_condition_skew_strict(
     verbose: bool = False
 ) -> list:
     """
-    P(x|y) differs across clients by label swapping.
+    P(y|x) differs across clients by label swapping.
 
     Random mode: randomly choose which labels are in the swapping pool. (#mixing_label_number)
     Non-random mode: a list of labels are provided to be swapped.
@@ -1543,7 +1543,7 @@ def split_feature_condition_skew_strict(
     
     return rearranged_data
 
-def split_label_condition_skew_strict(
+def split_feature_condition_skew_strict(
     train_features: torch.Tensor,
     train_labels: torch.Tensor,
     test_features: torch.Tensor,
@@ -1561,7 +1561,7 @@ def split_label_condition_skew_strict(
     verbose: bool = False
 ) -> list:
     """
-    P(y|x) differs across clients by targeted rotation/coloring.
+    P(x|y) differs across clients by targeted rotation/coloring.
 
     Random mode: randomly choose which labels are to be rotated/colored. (#rotated_label_number/#colored_label_number)
     Non-random mode: a list of labels are provided to be rotated/colored.

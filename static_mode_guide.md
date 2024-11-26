@@ -71,55 +71,55 @@ Not suggested being used for creating concept drift datasets.
 
 - `std_dev: float` Standard deviation of the normal distribution for the data partition. A higher number indicates more unbalanced.
 
-### feature_condition_skew
-> Creating datasets that P(x|y) differs across clients by label swapping. A label-swapping pool is created (e.g. {1,4,7}) and data points of those labels are re-assigned to one label in the pool.
-
-- `random_mode: bool` Randomly choose which labels are in the swapping pool.
-
-- `mixing_label_number: int` The number of the types of classes in the pool if `random_mode`.
-
-- `mixing_label_list: list` If not `random_mode`, provide a list of the types of classes for the swapping pool.
-
-- `scaling_label_low, scaling_label_high: float [0,1]` The probability range (randomly uniformly chosen between) if a label will be swapped, **0** as of no swapping, **1** as of always swapping.
-
-### feature_condition_skew_unbalanced
-> Creating unbalanced datasets that P(x|y) differs across clients by label swapping. A label-swapping pool is created (e.g. {1,4,7}) and data points of those labels are re-assigned to one label in the pool.
-
-- `random_mode: bool` Randomly choose which labels are in the swapping pool.
-
-- `mixing_label_number: int` The number of the types of classes in the pool if `random_mode`.
-
-- `mixing_label_list: list` If not `random_mode`, provide a list of the types of classes for the swapping pool.
-
-- `scaling_label_low, scaling_label_high: float [0,1]` The probability range (randomly uniformly chosen between) if a label will be swapped, **0** as of no swapping, **1** as of always swapping.
-
-- `std_dev: float` Standard deviation of the normal distribution for the data partition. A higher number indicates more unbalanced.
-
-- `permute: bool` Shuffle the data before splitting.
-
 ### label_condition_skew
-> Creating datasets that P(y|x) differs across clients by targeted rotation/coloring.
+> Creating datasets that P(y|x) differs across clients by label swapping. A label-swapping pool is created (e.g. {1,4,7}) and data points of those labels are re-assigned to one label in the pool.
 
-- `set_rotation: bool` Whether assigning rotations.
+- `random_mode: bool` Randomly choose which labels are in the swapping pool.
 
-- `rotations: int > 1` The number of possible rotations. Recommended to be {**2**,**4**}, as of **[0°,180°]** and **[0°,90°,180°,270°]**.
+- `mixing_label_number: int` The number of the types of classes in the pool if `random_mode`.
 
-- `set_color: bool` Whether assigning colors.
+- `mixing_label_list: list` If not `random_mode`, provide a list of the types of classes for the swapping pool.
 
-- `colors: int` The number of possible colors. {1,2,3}
-
-- `random_mode: bool` Randomly choose which (images of) classes will be rotated/colored.
-
-- `rotated_label_number: int` The number of classes to be rotated if `random_mode`.
-
-- `colored_label_number: int` The number of classes to be colored if `random_mode`.
-
-- `rotated_label_list: list` If not `random_mode`, provide a list of the types of classes to be rotated.
-
-- `colored_label_list: list` If not `random_mode`, provide a list of the types of classes to be colored.
+- `scaling_label_low, scaling_label_high: float [0,1]` The probability range (randomly uniformly chosen between) if a label will be swapped, **0** as of no swapping, **1** as of always swapping.
 
 ### label_condition_skew_unbalanced
-> Creating unbalanced datasets that P(y|x) differs across clients by targeted rotation/coloring.
+> Creating unbalanced datasets that P(y|x) differs across clients by label swapping. A label-swapping pool is created (e.g. {1,4,7}) and data points of those labels are re-assigned to one label in the pool.
+
+- `random_mode: bool` Randomly choose which labels are in the swapping pool.
+
+- `mixing_label_number: int` The number of the types of classes in the pool if `random_mode`.
+
+- `mixing_label_list: list` If not `random_mode`, provide a list of the types of classes for the swapping pool.
+
+- `scaling_label_low, scaling_label_high: float [0,1]` The probability range (randomly uniformly chosen between) if a label will be swapped, **0** as of no swapping, **1** as of always swapping.
+
+- `std_dev: float` Standard deviation of the normal distribution for the data partition. A higher number indicates more unbalanced.
+
+- `permute: bool` Shuffle the data before splitting.
+
+### feature_condition_skew
+> Creating datasets that P(x|y) differs across clients by targeted rotation/coloring.
+
+- `set_rotation: bool` Whether assigning rotations.
+
+- `rotations: int > 1` The number of possible rotations. Recommended to be {**2**,**4**}, as of **[0°,180°]** and **[0°,90°,180°,270°]**.
+
+- `set_color: bool` Whether assigning colors.
+
+- `colors: int` The number of possible colors. {1,2,3}
+
+- `random_mode: bool` Randomly choose which (images of) classes will be rotated/colored.
+
+- `rotated_label_number: int` The number of classes to be rotated if `random_mode`.
+
+- `colored_label_number: int` The number of classes to be colored if `random_mode`.
+
+- `rotated_label_list: list` If not `random_mode`, provide a list of the types of classes to be rotated.
+
+- `colored_label_list: list` If not `random_mode`, provide a list of the types of classes to be colored.
+
+### feature_condition_skew_unbalanced
+> Creating unbalanced datasets that P(x|y) differs across clients by targeted rotation/coloring.
 
 - `set_rotation: bool` Whether assigning rotations.
 
@@ -143,8 +143,8 @@ Not suggested being used for creating concept drift datasets.
 
 - `permute: bool` Shuffle the data before splitting.
 
-### feature_condition_skew_with_label_skew
-> Creating datasets that P(x|y) differs across clients by label swapping, while labels are already skewed. A label-swapping pool is created (e.g. {1,4,7}) and data points of those labels are re-assigned to one label in the pool.
+### label_condition_skew_with_label_skew
+> Creating datasets that P(y|x) differs across clients by label swapping, while labels are already skewed. A label-swapping pool is created (e.g. {1,4,7}) and data points of those labels are re-assigned to one label in the pool.
 
 - `scaling_label_low, scaling_label_high: float` A scaling factor range (randomly uniformly chosen between) for non-IID-ness with a softmax function. **0** as uniformly distributed, (fine-tune a higher scaling factor for optimal results).
 
@@ -156,8 +156,8 @@ Not suggested being used for creating concept drift datasets.
 
 - `scaling_swapping_low, scaling_swapping_high: float [0,1]` The probability range (randomly uniformly chosen between) if a label will be swapped, **0** as of no swapping, **1** as of always swapping.
 
-### label_condition_skew_with_label_skew
-> Creating datasets that P(y|x) differs across clients by targeted rotation/coloring, while labels are already skewed.
+### feature_condition_skew_with_label_skew
+> Creating datasets that P(x|y) differs across clients by targeted rotation/coloring, while labels are already skewed.
 
 - `scaling_swapping_low, scaling_swapping_high: float [0,1]` The probability range (randomly uniformly chosen between) if a label will be swapped, **0** as of no swapping, **1** as of always swapping.
 
@@ -197,7 +197,7 @@ Not suggested being used for creating concept drift datasets.
 
 - `py_bank: int` The number of possible label distributions (clusters).
 
-### feature_condition_skew_strict
+### label_condition_skew_strict
 > Strict version of feature condition skew, used for clustering tasks.
 
 - `random_mode: bool` Randomly choose which labels are in the swapping pool.
@@ -206,7 +206,7 @@ Not suggested being used for creating concept drift datasets.
   
 - `mixing_label_list: list` If not `random_mode`, provide a list of the types of classes for the swapping pool.
 
-### label_condition_skew_strict
+### feature_condition_skew_strict
 > Strict version of label condition skew, used for clustering tasks.
 
 - `set_rotation: bool` Whether assigning rotations.

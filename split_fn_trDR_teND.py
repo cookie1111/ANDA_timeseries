@@ -362,7 +362,7 @@ def split_trDR_teND_Py(
 
     return rearranged_data
 
-def split_trDR_teND_Px_y(
+def split_trDR_teND_Py_x(
     train_features: torch.Tensor,
     train_labels: torch.Tensor,
     test_features: torch.Tensor,
@@ -380,7 +380,7 @@ def split_trDR_teND_Px_y(
     Split the dataset into distributions as:
         Training: A-A-B-B-B-C-C-C-A-A-D-D …
         Testing: A/B/C/D (seen at least once)
-        with distribution difference in P(x|y)
+        with distribution difference in P(y|x)
         for A SINGLE CLIENT. (overall skew among clients exists)
 
     Args:
@@ -541,7 +541,7 @@ def split_trDR_teND_Px_y(
 
     return rearranged_data
 
-def split_trDR_teND_Py_x(
+def split_trDR_teND_Px_y(
     train_features: torch.Tensor,
     train_labels: torch.Tensor,
     test_features: torch.Tensor,
@@ -562,7 +562,7 @@ def split_trDR_teND_Py_x(
     Split the dataset into distributions as:
         Training: A-A-B-B-B-C-C-C-A-A-D-D …
         Testing: A/B/C/D (seen at least once)
-        with distribution difference in P(y|x)
+        with distribution difference in P(x|y)
         for A SINGLE CLIENT. (overall skew among clients exists)
 
     Args:

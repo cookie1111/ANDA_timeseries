@@ -12,8 +12,8 @@
 - Supporting five types of non-IID-ness and their mixtures:
   - **feature distribution skew**: P(x)
   - **label distribution skew:** P(y)
-  - **concept drift: feature condition skew:** P(x|y)
   - **concept drift: label condition skew:** P(y|x)
+  - **concept drift: feature condition skew:** P(x|y)
   - **quantity skew**
  
 # :large_blue_circle: USAGE WITH ONE LINE
@@ -161,7 +161,7 @@ Results: (showing data from first four clients, try to repeat it with the same s
 new_dataset = anda.load_split_datasets(
     dataset_name = "MNIST",
     client_number = 10,
-    non_iid_type = "label_condition_skew",
+    non_iid_type = "feature_condition_skew",
     mode = "manual",
     verbose = True,
     count_labels = True,
