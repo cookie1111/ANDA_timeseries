@@ -359,7 +359,7 @@ The distribution of testing is not drifting (seen at least once).
 new_dataset = anda.load_split_datasets_dynamic(
     dataset_name = "MNIST",
     client_number = 10,
-    non_iid_type = "Px_y",
+    non_iid_type = "Py_x",
     drfting_type = "trDA_teND",
     verbose = True,
     count_labels = True,
@@ -411,7 +411,7 @@ The distribution of testing drifted (unseen to the client).
 new_dataset = anda.load_split_datasets_dynamic(
     dataset_name = "MNIST",
     client_number = 10,
-    non_iid_type = "Py_x",
+    non_iid_type = "Px_y",
     drfting_type = "trDR_teDR",
     verbose = True,
     count_labels = True,
