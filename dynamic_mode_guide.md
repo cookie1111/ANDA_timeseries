@@ -18,14 +18,14 @@ Resembles static (\\) mode as the training set is not changing during all epochs
 - `scaling_low, scaling_high: float` A scaling factor range (randomly uniformly chosen between) for non-IID-ness with a softmax function.
 - `reverse_test: bool` Reverse the patterns from the training set for the testing set. (creating strong unseen level)
 
-### non_iid_type = `Px_y`
-> Creating feature condition skewed (P(x|y)) sub-datasets.
+### non_iid_type = `Py_x`
+> Creating feature condition skewed (P(y|x)) sub-datasets.
 > For each client, train and test datasets are assigned with diff random label-swapping partterns.
 - `mixing_num: int` The number of mixed labels. A list of classes (#len = mixing_num) will be generated as the only swapping pool.
 - `scaling_low, scaling_high: float` A scaling factor range (randomly uniformly chosen between) for non-IID-ness with a softmax function.
 
-### non_iid_type = `Py_x`
-> Creating feature condition skewed (P(y|x)) sub-datasets.
+### non_iid_type = `Px_y`
+> Creating feature condition skewed (P(x|y)) sub-datasets.
 > Randomly chosen #rotated_label_number and #colored_label_number of classes will be rotated/colored. And the pattern is randomly generated based on #rotation_bank and #color_bank.
 - `rotation_bank: int` The number of rotation patterns. **1** as no rotation.
 - `color_bank: int` The number of color patterns. **1** as no color.
@@ -85,18 +85,18 @@ drifting as [A]-[AB]-[ABC]-[ABCD]-[ABCDA] is INVALID. (back to dist A)
 
 **Note**: scaling not supported.
 
-### non_iid_type = `Px_y`
+### non_iid_type = `Py_x`
 > #mixing_num classes will be randomly selected for label-swapping.
->One permutation of classes as a type of P(x|y) distribution (A/B/C ...).
+>One permutation of classes as a type of P(y|x) distribution (A/B/C ...).
 >E.g. mixing_num=3, classes [0,5,7] are selected. The swap_bank will be:
 >[0,5,7],[0,7,5],[5,0,7],[5,7,0],[7,0,5],[7,5,0]
 - `mixing_num: int` The number of mixed classes. (Classes randomly chosen)
 
 **Note**: The overall training set is chunked for sub stages (Last stage grows to full size). Tune `DA_dataset_scaling` for an ideal size.
 
-### non_iid_type = `Py_x`
+### non_iid_type = `Px_y`
 > A Px pattern bank will be created based on #rotation and #color.
-> A Pyx pattern bank (len = #pyx_pattern_bank_num) will be created as a type of P(y|x) distribution (A/B/C ...).
+> A Pyx pattern bank (len = #pyx_pattern_bank_num) will be created as a type of P(x|y) distribution (A/B/C ...).
 > Each pattern chooses a Px pattern and applies to #targeted_class_number classes (randomly selected).
 - `rotation_bank: int` The number of rotation patterns. **1** as no rotation.
 - `color_bank: int` The number of color patterns. **1** as no color.
