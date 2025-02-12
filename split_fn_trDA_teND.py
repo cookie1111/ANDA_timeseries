@@ -97,7 +97,8 @@ def split_trDA_teND_Px(
     assert 0 < color_bank, "The number of color patterns must be greater than 0."
     assert DA_dataset_scaling >= 1, "Invalid downscaling."
     assert DA_epoch_locker_num > 0, "The number of epoch lockers must be greater than 0."
-    assert 1 <= DA_max_dist <= rotation_bank * color_bank, "Distribution assignment out of range."
+    assert 1 <= DA_max_dist, "Distribution assignment out of range."
+    DA_max_dist = min(DA_max_dist, rotation_bank * color_bank)
 
     # generate pattern bank
     angles = [i * 360 / rotation_bank for i in range(rotation_bank)] if rotation_bank > 1 else [0.0]
@@ -291,7 +292,8 @@ def split_trDA_teND_Py(
     assert len(test_features) == len(test_labels), "The number of samples in features and labels must be the same."
     assert DA_dataset_scaling >= 1, "Invalid downscaling."
     assert DA_epoch_locker_num > 0, "The number of epoch lockers must be greater than 0."
-    assert 1 <= DA_max_dist <= py_bank, "Distribution assignment out of range."
+    assert 1 <= DA_max_dist, "Distribution assignment out of range."
+    DA_max_dist = min(DA_max_dist, py_bank)
     assert torch.unique(train_labels).size(0) == torch.unique(test_labels).size(0), "Original Dataset Fault."
     label_num = torch.unique(train_labels).size(0)
     assert 1 <= classes_per_set <= label_num, "Invalid number of classes per set."
@@ -467,7 +469,8 @@ def split_trDA_teND_Py_x(
     assert len(test_features) == len(test_labels), "The number of samples in features and labels must be the same."
     assert DA_dataset_scaling >= 1, "Invalid downscaling."
     assert DA_epoch_locker_num > 0, "The number of epoch lockers must be greater than 0."
-    assert 1 <= DA_max_dist <= math.factorial(mixing_num), "Distribution assignment out of range."
+    assert 1 <= DA_max_dist, "Distribution assignment out of range."
+    DA_max_dist = min(DA_max_dist, math.factorial(mixing_num))
     assert torch.unique(train_labels).size(0) == torch.unique(test_labels).size(0), "Original Dataset Fault."
     label_num = torch.unique(train_labels).size(0)
     assert 1 <= mixing_num <= label_num, "Mixing class number out of range."
@@ -668,7 +671,8 @@ def split_trDA_teND_Px_y(
     assert 0 <= targeted_class_number <= max_label, "Out of range."
     assert DA_dataset_scaling >= 1, "Invalid downscaling."
     assert DA_epoch_locker_num > 0, "The number of epoch lockers must be greater than 0."
-    assert 1 <= DA_max_dist <= pyx_pattern_bank_num, "Distribution assignment out of range."
+    assert 1 <= DA_max_dist, "Distribution assignment out of range."
+    DA_max_dist = min(DA_max_dist, pyx_pattern_bank_num)
     assert torch.unique(train_labels).size(0) == torch.unique(test_labels).size(0), "Original Dataset Fault."
     assert pyx_pattern_bank_num <= math.comb(max_label, targeted_class_number), "pyx_pattern_bank_num out of range."
 
