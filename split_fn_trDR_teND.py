@@ -220,7 +220,8 @@ def split_trDR_teND_Px(
             'client_number': client_Count,
             'epoch_locker_indicator': -1.0,
             'epoch_locker_order': -1,
-            'cluster': test_dist
+            'cluster': test_dist,
+            'ideal_dist_num': len(last_dist_set)
         })
 
         client_Count += 1
@@ -403,7 +404,8 @@ def split_trDR_teND_Py(
             'client_number': client_Count,
             'epoch_locker_indicator': -1.0,
             'epoch_locker_order': -1,
-            'cluster': test_dist
+            'cluster': test_dist,
+            'ideal_dist_num': len(last_dist_set)
         })
 
         client_Count += 1
@@ -606,7 +608,8 @@ def split_trDR_teND_Py_x(
             'client_number': client_Count,
             'epoch_locker_indicator': -1.0,
             'epoch_locker_order': -1,
-            'cluster': test_dist
+            'cluster': test_dist,
+            'ideal_dist_num': len(last_dist_set)
         })
 
         client_Count += 1
@@ -843,7 +846,8 @@ def split_trDR_teND_Px_y(
             'client_number': client_Count,
             'epoch_locker_indicator': -1.0,
             'epoch_locker_order': -1,
-            'cluster': test_dist
+            'cluster': test_dist,
+            'ideal_dist_num': len(last_dist_set)
         })
 
         client_Count += 1
