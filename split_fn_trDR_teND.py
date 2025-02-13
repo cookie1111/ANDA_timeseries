@@ -31,6 +31,8 @@ def split_trDR_teND_Px(
     DA_random_locker: bool = False,
     DA_max_dist: int = 2,
     DA_continual_divergence: bool = False,
+    DA_seen_last: bool = True,
+    DA_seen_as_set: bool = False,
     verbose: bool = True
 ) -> list:
     '''
@@ -124,6 +126,30 @@ def split_trDR_teND_Px(
     basic_split_data_train = split_basic(train_features, train_labels, client_number)
     basic_split_data_test = split_basic(test_features, test_labels, client_number)
 
+    train_dist_list = []
+    last_dist_set = set()  # Use a set to avoid duplicates
+    last_dist_list = []
+    test_dist_list = []
+    dist_bank = list(range(1, rotation_bank * color_bank + 1))
+
+    for i in range(client_number):
+        cur_DA_dist = generate_DA_dist(dist_bank, DA_epoch_locker_num, DA_max_dist, DA_continual_divergence)
+        train_dist_list.append(cur_DA_dist)
+        last_dist_set.add(cur_DA_dist[-1]) 
+        last_dist_list.append(cur_DA_dist[-1])
+
+    print("Last dist set: ", last_dist_set)
+    print("Last dist list: ", last_dist_list)
+
+    for i in range(client_number):
+        if not DA_seen_last:
+            test_dist_list.append(np.random.choice(list(set(train_dist_list[i]))))
+        else:
+            if DA_seen_as_set:
+                test_dist_list.append(np.random.choice(list(last_dist_set)))
+            else:
+                test_dist_list.append(np.random.choice(last_dist_list))
+
     rearranged_data = []
     client_Count = 0
 
@@ -147,11 +173,8 @@ def split_trDR_teND_Px(
         cur_test_label = client_data_test['labels']
 
         # generate drifting
-        dist_bank = list(range(1, rotation_bank * color_bank + 1))
-        train_dist = generate_DA_dist(dist_bank,
-                                      DA_epoch_locker_num,DA_max_dist,DA_continual_divergence)
-        test_dist = np.random.choice(list(set(train_dist))) # random pick
-        # test_dist = max(set(train_dist), key=train_dist.count) # most common element
+        train_dist = train_dist_list[client_Count]
+        test_dist = test_dist_list[client_Count]
         
         lockers = sorted(torch.rand(DA_epoch_locker_num - 1).tolist() + [0.0]) if DA_random_locker \
                 else torch.linspace(0, 1, steps=DA_epoch_locker_num + 1)[:-1].tolist()
@@ -217,6 +240,8 @@ def split_trDR_teND_Py(
     DA_random_locker: bool = False,
     DA_max_dist: int = 2,
     DA_continual_divergence: bool = False,
+    DA_seen_last: bool = True,
+    DA_seen_as_set: bool = False,
     verbose: bool = True
 ) -> list:
     '''
@@ -295,6 +320,30 @@ def split_trDR_teND_Py(
     basic_split_data_train = split_basic(train_features, train_labels, client_number)
     basic_split_data_test = split_basic(test_features, test_labels, client_number)
 
+    train_dist_list = []
+    last_dist_set = set()  # Use a set to avoid duplicates
+    last_dist_list = []
+    test_dist_list = []
+    dist_bank = list(range(1, py_bank + 1))
+
+    for i in range(client_number):
+        cur_DA_dist = generate_DA_dist(dist_bank, DA_epoch_locker_num, DA_max_dist, DA_continual_divergence)
+        train_dist_list.append(cur_DA_dist)
+        last_dist_set.add(cur_DA_dist[-1]) 
+        last_dist_list.append(cur_DA_dist[-1])
+
+    print("Last dist set: ", last_dist_set)
+    print("Last dist list: ", last_dist_list)
+
+    for i in range(client_number):
+        if not DA_seen_last:
+            test_dist_list.append(np.random.choice(list(set(train_dist_list[i]))))
+        else:
+            if DA_seen_as_set:
+                test_dist_list.append(np.random.choice(list(last_dist_set)))
+            else:
+                test_dist_list.append(np.random.choice(last_dist_list))
+
     rearranged_data = []
     client_Count = 0
 
@@ -309,11 +358,8 @@ def split_trDR_teND_Py(
         cur_test_label = client_data_test['labels']
 
         # generate drifting
-        dist_bank = list(range(1, py_bank + 1))
-        train_dist = generate_DA_dist(dist_bank,
-                                      DA_epoch_locker_num,DA_max_dist,DA_continual_divergence)
-        test_dist = np.random.choice(list(set(train_dist))) # random pick
-        # test_dist = max(set(train_dist), key=train_dist.count) # most common element
+        train_dist = train_dist_list[client_Count]
+        test_dist = test_dist_list[client_Count]
         
         lockers = sorted(torch.rand(DA_epoch_locker_num - 1).tolist() + [0.0]) if DA_random_locker \
                 else torch.linspace(0, 1, steps=DA_epoch_locker_num + 1)[:-1].tolist()
@@ -376,6 +422,8 @@ def split_trDR_teND_Py_x(
     DA_random_locker: bool = False,
     DA_max_dist: int = 2,
     DA_continual_divergence: bool = False,
+    DA_seen_last: bool = True,
+    DA_seen_as_set: bool = False,
     verbose: bool = True
 ) -> list:
     """
@@ -462,6 +510,30 @@ def split_trDR_teND_Py_x(
     basic_split_data_train = split_basic(train_features, train_labels, client_number)
     basic_split_data_test = split_basic(test_features, test_labels, client_number)
 
+    train_dist_list = []
+    last_dist_set = set()  # Use a set to avoid duplicates
+    last_dist_list = []
+    test_dist_list = []
+    dist_bank = list(range(1, math.factorial(mixing_num) + 1))
+
+    for i in range(client_number):
+        cur_DA_dist = generate_DA_dist(dist_bank, DA_epoch_locker_num, DA_max_dist, DA_continual_divergence)
+        train_dist_list.append(cur_DA_dist)
+        last_dist_set.add(cur_DA_dist[-1]) 
+        last_dist_list.append(cur_DA_dist[-1])
+
+    print("Last dist set: ", last_dist_set)
+    print("Last dist list: ", last_dist_list)
+
+    for i in range(client_number):
+        if not DA_seen_last:
+            test_dist_list.append(np.random.choice(list(set(train_dist_list[i]))))
+        else:
+            if DA_seen_as_set:
+                test_dist_list.append(np.random.choice(list(last_dist_set)))
+            else:
+                test_dist_list.append(np.random.choice(last_dist_list))
+
     rearranged_data = []
     client_Count = 0
 
@@ -485,11 +557,8 @@ def split_trDR_teND_Py_x(
         cur_test_label = client_data_test['labels']
 
         # generate drifting
-        dist_bank = list(range(1, math.factorial(mixing_num) + 1))
-        train_dist = generate_DA_dist(dist_bank,
-                                      DA_epoch_locker_num,DA_max_dist,DA_continual_divergence)
-        test_dist = np.random.choice(list(set(train_dist))) # random pick
-        # test_dist = max(set(train_dist), key=train_dist.count) # most common element
+        train_dist = train_dist_list[client_Count]
+        test_dist = test_dist_list[client_Count]
         
         lockers = sorted(torch.rand(DA_epoch_locker_num - 1).tolist() + [0.0]) if DA_random_locker \
                 else torch.linspace(0, 1, steps=DA_epoch_locker_num + 1)[:-1].tolist()
@@ -559,6 +628,8 @@ def split_trDR_teND_Px_y(
     DA_random_locker: bool = False,
     DA_max_dist: int = 2,
     DA_continual_divergence: bool = False,
+    DA_seen_last: bool = True,
+    DA_seen_as_set: bool = False,
     verbose: bool = True
 ) -> list:
     """
@@ -663,9 +734,34 @@ def split_trDR_teND_Px_y(
 
     print("Pyx bank:\n", '\n'.join(f"{key}: {value}" for key, value in pyx_bank.items())) if verbose else None
 
+
     # generate basic split
     basic_split_data_train = split_basic(train_features, train_labels, client_number)
     basic_split_data_test = split_basic(test_features, test_labels, client_number)
+
+    train_dist_list = []
+    last_dist_set = set()  # Use a set to avoid duplicates
+    last_dist_list = []
+    test_dist_list = []
+    dist_bank = list(range(1, pyx_pattern_bank_num + 1))
+
+    for i in range(client_number):
+        cur_DA_dist = generate_DA_dist(dist_bank, DA_epoch_locker_num, DA_max_dist, DA_continual_divergence)
+        train_dist_list.append(cur_DA_dist)
+        last_dist_set.add(cur_DA_dist[-1]) 
+        last_dist_list.append(cur_DA_dist[-1])
+
+    print("Last dist set: ", last_dist_set)
+    print("Last dist list: ", last_dist_list)
+
+    for i in range(client_number):
+        if not DA_seen_last:
+            test_dist_list.append(np.random.choice(list(set(train_dist_list[i]))))
+        else:
+            if DA_seen_as_set:
+                test_dist_list.append(np.random.choice(list(last_dist_set)))
+            else:
+                test_dist_list.append(np.random.choice(last_dist_list))
 
     rearranged_data = []
     client_Count = 0
@@ -691,11 +787,8 @@ def split_trDR_teND_Px_y(
         cur_test_label = client_data_test['labels']
 
         # generate drifting
-        dist_bank = list(range(1, pyx_pattern_bank_num + 1))
-        train_dist = generate_DA_dist(dist_bank,
-                                      DA_epoch_locker_num,DA_max_dist,DA_continual_divergence)
-        test_dist = np.random.choice(list(set(train_dist))) # random pick
-        # test_dist = max(set(train_dist), key=train_dist.count) # most common element
+        train_dist = train_dist_list[client_Count]
+        test_dist = test_dist_list[client_Count]
         
         lockers = sorted(torch.rand(DA_epoch_locker_num - 1).tolist() + [0.0]) if DA_random_locker \
                 else torch.linspace(0, 1, steps=DA_epoch_locker_num + 1)[:-1].tolist()
