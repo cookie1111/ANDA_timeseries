@@ -425,6 +425,7 @@ def split_trDR_teND_Py_x(
     DA_max_dist: int = 2,
     DA_continual_divergence: bool = False,
     DA_seen_last: bool = True,
+    DA_last_same_dis: bool = True,
     DA_seen_as_set: bool = False,
     verbose: bool = True
 ) -> list:
@@ -531,7 +532,9 @@ def split_trDR_teND_Py_x(
         if not DA_seen_last:
             test_dist_list.append(np.random.choice(list(set(train_dist_list[i]))))
         else:
-            if DA_seen_as_set:
+            if DA_last_same_dis:
+                test_dist_list.append(train_dist_list[i][-1])
+            elif DA_seen_as_set:
                 test_dist_list.append(np.random.choice(list(last_dist_set)))
             else:
                 test_dist_list.append(np.random.choice(last_dist_list))
