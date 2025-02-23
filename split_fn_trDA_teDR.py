@@ -190,8 +190,8 @@ def split_trDA_teDR_Px(
             # Append the cumulative data to rearranged_data
             rearranged_data.append({
                 'train': True,
-                'features': cumulative_features,
-                'labels': cumulative_labels,
+                'features': cumulative_features.detach(),
+                'labels': cumulative_labels.detach(),
                 'client_number': client_Count,
                 'epoch_locker_indicator': lockers[i],
                 'epoch_locker_order': i,
@@ -205,8 +205,8 @@ def split_trDA_teDR_Px(
 
         rearranged_data.append({
             'train': False,
-            'features': cur_test_feature,
-            'labels': cur_test_label,
+            'features': cur_test_feature.detach(),
+            'labels': cur_test_label.detach(),
             'client_number': client_Count,
             'epoch_locker_indicator': -1.0,
             'epoch_locker_order': -1,
@@ -364,8 +364,8 @@ def split_trDA_teDR_Py(
             # Append the cumulative data to rearranged_data
             rearranged_data.append({
                 'train': True,
-                'features': cumulative_features,
-                'labels': cumulative_labels,
+                'features': cumulative_features.detach(),
+                'labels': cumulative_labels.detach(),
                 'client_number': client_Count,
                 'epoch_locker_indicator': lockers[i],
                 'epoch_locker_order': i,
@@ -381,8 +381,8 @@ def split_trDA_teDR_Py(
 
         rearranged_data.append({
             'train': False,
-            'features': filtered_test_feature,
-            'labels': filtered_test_label,
+            'features': filtered_test_feature.detach(),
+            'labels': filtered_test_label.detach(),
             'client_number': client_Count,
             'epoch_locker_indicator': -1.0,
             'epoch_locker_order': -1,
@@ -558,8 +558,8 @@ def split_trDA_teDR_Py_x(
             # Append the cumulative data to rearranged_data
             rearranged_data.append({
                 'train': True,
-                'features': cumulative_features,
-                'labels': cumulative_labels,
+                'features': cumulative_features.detach(),
+                'labels': cumulative_labels.detach(),
                 'client_number': client_Count,
                 'epoch_locker_indicator': lockers[i],
                 'epoch_locker_order': i,
@@ -574,8 +574,8 @@ def split_trDA_teDR_Py_x(
 
         rearranged_data.append({
             'train': False,
-            'features': cur_test_feature,
-            'labels': remapped_label,
+            'features': cur_test_feature.detach(),
+            'labels': remapped_label.detach(),
             'client_number': client_Count,
             'epoch_locker_indicator': -1.0,
             'epoch_locker_order': -1,
@@ -781,8 +781,8 @@ def split_trDA_teDR_Px_y(
             # Append the cumulative data to rearranged_data
             rearranged_data.append({
                 'train': True,
-                'features': cumulative_features,
-                'labels': cumulative_labels,
+                'features': cumulative_features.detach(),
+                'labels': cumulative_labels.detach(),
                 'client_number': client_Count,
                 'epoch_locker_indicator': lockers[i],
                 'epoch_locker_order': i,
@@ -801,8 +801,8 @@ def split_trDA_teDR_Px_y(
 
         rearranged_data.append({
             'train': False,
-            'features': cur_test_feature,
-            'labels': cur_test_label,
+            'features': cur_test_feature.detach(),
+            'labels': cur_test_label.detach(),
             'client_number': client_Count,
             'epoch_locker_indicator': -1.0,
             'epoch_locker_order': -1,
