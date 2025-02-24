@@ -129,10 +129,10 @@ new_dataset = anda.load_split_datasets(
 # output format
 # len(new_dataset) = 10 (client_number)
 # new_dataset[0].keys() = {
-#    'train_features': torch.Tensor
-#    'train_labels': torch.Tensor
-#    'test_features': torch.Tensor
-#    'test_labels': torch.Tensor
+#    'train_features': numpy.ndarray
+#    'train_labels': numpy.ndarray
+#    'test_features': numpy.ndarray
+#    'test_labels': numpy.ndarray
 #    'cluster': int = -1 (not designed for clustering)
 # }
 ```
@@ -176,10 +176,10 @@ new_dataset = anda.load_split_datasets(
 # output format
 # len(new_dataset) = 10 (client_number)
 # new_dataset[0].keys() = {
-#    'train_features': torch.Tensor
-#    'train_labels': torch.Tensor
-#    'test_features': torch.Tensor
-#    'test_labels': torch.Tensor
+#    'train_features': numpy.ndarray
+#    'train_labels': numpy.ndarray
+#    'test_features': numpy.ndarray
+#    'test_labels': numpy.ndarray
 #    'cluster': int
 # }
 ```
@@ -226,10 +226,10 @@ new_dataset = anda.load_split_datasets(
 # output format
 # len(new_dataset) = 10 (client_number)
 # new_dataset[0].keys() = {
-#    'train_features': torch.Tensor
-#    'train_labels': torch.Tensor
-#    'test_features': torch.Tensor
-#    'test_labels': torch.Tensor
+#    'train_features': numpy.ndarray
+#    'train_labels': numpy.ndarray
+#    'test_features': numpy.ndarray
+#    'test_labels': numpy.ndarray
 #    'cluster': int (cluster identity)
 # }
 ```
@@ -270,10 +270,10 @@ new_dataset = anda.load_split_datasets_dynamic(
 # output format
 # len(new_dataset) = 10 (client_number)
 # new_dataset[0].keys() = {
-#    'train_features': torch.Tensor
-#    'train_labels': torch.Tensor
-#    'test_features': torch.Tensor
-#    'test_labels': torch.Tensor
+#    'train_features': numpy.ndarray
+#    'train_labels': numpy.ndarray
+#    'test_features': numpy.ndarray
+#    'test_labels': numpy.ndarray
 # }
 ```
 Results: (showing data from the first client, both training and testing sets)
@@ -318,8 +318,8 @@ new_dataset = anda.load_split_datasets_dynamic(
 # output format
 # new_dataset[0].keys() = {
 #    'train': bool, True for training set, False for testing set
-#    'features': torch.Tensor
-#    'labels': torch.Tensor
+#    'features': numpy.ndarray
+#    'labels': numpy.ndarray
 #    'client_number': int, client number
 #    'epoch_locker_indicator': float [0.0, 1.0], indicating data updating time
 #                0.0: the first epoch, 1.0: the last epoch (percentage)
@@ -370,8 +370,8 @@ new_dataset = anda.load_split_datasets_dynamic(
 # output format
 # new_dataset[0].keys() = {
 #    'train': bool, True for training set, False for testing set
-#    'features': torch.Tensor
-#    'labels': torch.Tensor
+#    'features': numpy.ndarray
+#    'labels': numpy.ndarray
 #    'client_number': int, client number
 #    'epoch_locker_indicator': float [0.0, 1.0], indicating data updating time
 #                0.0: the first epoch, 1.0: the last epoch (percentage)
@@ -422,8 +422,8 @@ new_dataset = anda.load_split_datasets_dynamic(
 # output format
 # new_dataset[0].keys() = {
 #    'train': bool, True for training set, False for testing set
-#    'features': torch.Tensor
-#    'labels': torch.Tensor
+#    'features': numpy.ndarray
+#    'labels': numpy.ndarray
 #    'client_number': int, client number
 #    'epoch_locker_indicator': float [0.0, 1.0], indicating data updating time
 #                0.0: the first epoch, 1.0: the last epoch (percentage)
@@ -474,8 +474,8 @@ new_dataset = anda.load_split_datasets_dynamic(
 # output format
 # new_dataset[0].keys() = {
 #    'train': bool, True for training set, False for testing set
-#    'features': torch.Tensor
-#    'labels': torch.Tensor
+#    'features': numpy.ndarray
+#    'labels': numpy.ndarray
 #    'client_number': int, client number
 #    'epoch_locker_indicator': float [0.0, 1.0], indicating data updating time
 #                0.0: the first epoch, 1.0: the last epoch (percentage)
@@ -496,5 +496,5 @@ Results: (showing data from the first client, both training (rounds 1,2,3) and t
 [Federated learning on non-IID data: A survey](https://www.sciencedirect.com/science/article/pii/S0925231221013254)
 
 # :large_blue_circle: TODO LIST
-- README is not updated. Significant changes are made in the codebase. (24.02.2025)
+- A few additional customizations for the dynamic modes have been made but not updated in README page.)
 - Scripts for quick start with FL libs (PySyft, Flower, etc.)
