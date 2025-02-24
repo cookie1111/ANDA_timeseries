@@ -177,8 +177,8 @@ def split_trDR_teDR_Px(
             # Append the cumulative data to rearranged_data
             rearranged_data.append({
                 'train': True,
-                'features': feature_chunk.detach(),
-                'labels': label_chunk.detach(),
+                'features': feature_chunk.detach().cpu().numpy(),
+                'labels': label_chunk.detach().cpu().numpy(),
                 'client_number': client_Count,
                 'epoch_locker_indicator': lockers[i],
                 'epoch_locker_order': i,
@@ -192,8 +192,8 @@ def split_trDR_teDR_Px(
 
         rearranged_data.append({
             'train': False,
-            'features': cur_test_feature.detach(),
-            'labels': cur_test_label.detach(),
+            'features': cur_test_feature.detach().cpu().numpy(),
+            'labels': cur_test_label.detach().cpu().numpy(),
             'client_number': client_Count,
             'epoch_locker_indicator': -1.0,
             'epoch_locker_order': -1,
@@ -335,8 +335,8 @@ def split_trDR_teDR_Py(
             # Append the cumulative data to rearranged_data
             rearranged_data.append({
                 'train': True,
-                'features': filtered_train_feature.detach(),
-                'labels': filtered_train_label.detach(),
+                'features': filtered_train_feature.detach().cpu().numpy(),
+                'labels': filtered_train_label.detach().cpu().numpy(),
                 'client_number': client_Count,
                 'epoch_locker_indicator': lockers[i],
                 'epoch_locker_order': i,
@@ -352,8 +352,8 @@ def split_trDR_teDR_Py(
 
         rearranged_data.append({
             'train': False,
-            'features': filtered_test_feature.detach(),
-            'labels': filtered_test_label.detach(),
+            'features': filtered_test_feature.detach().cpu().numpy(),
+            'labels': filtered_test_label.detach().cpu().numpy(),
             'client_number': client_Count,
             'epoch_locker_indicator': -1.0,
             'epoch_locker_order': -1,
@@ -516,8 +516,8 @@ def split_trDR_teDR_Py_x(
             # Append the cumulative data to rearranged_data
             rearranged_data.append({
                 'train': True,
-                'features': feature_chunk.detach(),
-                'labels': remapped_label_chunk.detach(),
+                'features': feature_chunk.detach().cpu().numpy(),
+                'labels': remapped_label_chunk.detach().cpu().numpy(),
                 'client_number': client_Count,
                 'epoch_locker_indicator': lockers[i],
                 'epoch_locker_order': i,
@@ -532,8 +532,8 @@ def split_trDR_teDR_Py_x(
 
         rearranged_data.append({
             'train': False,
-            'features': cur_test_feature.detach(),
-            'labels': remapped_label.detach(),
+            'features': cur_test_feature.detach().cpu().numpy(),
+            'labels': remapped_label.detach().cpu().numpy(),
             'client_number': client_Count,
             'epoch_locker_indicator': -1.0,
             'epoch_locker_order': -1,
@@ -726,8 +726,8 @@ def split_trDR_teDR_Px_y(
             # Append the cumulative data to rearranged_data
             rearranged_data.append({
                 'train': True,
-                'features': feature_chunk.detach(),
-                'labels': label_chunk.detach(),
+                'features': feature_chunk.detach().cpu().numpy(),
+                'labels': label_chunk.detach().cpu().numpy(),
                 'client_number': client_Count,
                 'epoch_locker_indicator': lockers[i],
                 'epoch_locker_order': i,
@@ -746,8 +746,8 @@ def split_trDR_teDR_Px_y(
 
         rearranged_data.append({
             'train': False,
-            'features': cur_test_feature.detach(),
-            'labels': cur_test_label.detach(),
+            'features': cur_test_feature.detach().cpu().numpy(),
+            'labels': cur_test_label.detach().cpu().numpy(),
             'client_number': client_Count,
             'epoch_locker_indicator': -1.0,
             'epoch_locker_order': -1,

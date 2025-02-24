@@ -126,10 +126,10 @@ def split_feature_skew(
     for i in range(client_number):
         # Create a new dictionary for each client
         client_data = {
-            'train_features': basic_split_data_train[i]['features'].detach(),
-            'train_labels': basic_split_data_train[i]['labels'].detach(),
-            'test_features': basic_split_data_test[i]['features'].detach(),
-            'test_labels': basic_split_data_test[i]['labels'].detach(),
+            'train_features': basic_split_data_train[i]['features'].detach().cpu().numpy(),
+            'train_labels': basic_split_data_train[i]['labels'].detach().cpu().numpy(),
+            'test_features': basic_split_data_test[i]['features'].detach().cpu().numpy(),
+            'test_labels': basic_split_data_test[i]['labels'].detach().cpu().numpy(),
             'cluster': -1
         }
         # Append the new dictionary to the list
@@ -191,10 +191,10 @@ def split_label_skew(
             remaining_test_features, remaining_test_labels, probabilities, avg_points_per_client_test)
         
         client_data = {
-            'train_features': sub_train_features.detach(),
-            'train_labels': sub_train_labels.detach(),
-            'test_features': sub_test_features.detach(),
-            'test_labels': sub_test_labels.detach(),
+            'train_features': sub_train_features.detach().cpu().numpy(),
+            'train_labels': sub_train_labels.detach().cpu().numpy(),
+            'test_features': sub_test_features.detach().cpu().numpy(),
+            'test_labels': sub_test_labels.detach().cpu().numpy(),
             'cluster': -1
         }        
         rearranged_data.append(client_data)
@@ -307,10 +307,10 @@ def split_feature_label_skew(
             sub_test_features = color_dataset(sub_test_features, test_colors)
 
         client_data = {
-            'train_features': sub_train_features.detach(),
-            'train_labels': sub_train_labels.detach(),
-            'test_features': sub_test_features.detach(),
-            'test_labels': sub_test_labels.detach(),
+            'train_features': sub_train_features.detach().cpu().numpy(),
+            'train_labels': sub_train_labels.detach().cpu().numpy(),
+            'test_features': sub_test_features.detach().cpu().numpy(),
+            'test_labels': sub_test_labels.detach().cpu().numpy(),
             'cluster': -1
         }
         rearranged_data.append(client_data)
@@ -433,10 +433,10 @@ def split_feature_skew_unbalanced(
     for i in range(client_number):
         # Create a new dictionary for each client
         client_data = {
-            'train_features': basic_split_data_train[i]['features'].detach(),
-            'train_labels': basic_split_data_train[i]['labels'].detach(),
-            'test_features': basic_split_data_test[i]['features'].detach(),
-            'test_labels': basic_split_data_test[i]['labels'].detach(),
+            'train_features': basic_split_data_train[i]['features'].detach().cpu().numpy(),
+            'train_labels': basic_split_data_train[i]['labels'].detach().cpu().numpy(),
+            'test_features': basic_split_data_test[i]['features'].detach().cpu().numpy(),
+            'test_labels': basic_split_data_test[i]['labels'].detach().cpu().numpy(),
             'cluster': -1
         }
         # Append the new dictionary to the list
@@ -517,10 +517,10 @@ def split_label_skew_unbalanced(
             remaining_test_features, remaining_test_labels, probabilities, test_samples_per_client[i])
         
         client_data = {
-            'train_features': sub_train_features.detach(),
-            'train_labels': sub_train_labels.detach(),
-            'test_features': sub_test_features.detach(),
-            'test_labels': sub_test_labels.detach()
+            'train_features': sub_train_features.detach().cpu().numpy(),
+            'train_labels': sub_train_labels.detach().cpu().numpy(),
+            'test_features': sub_test_features.detach().cpu().numpy(),
+            'test_labels': sub_test_labels.detach().cpu().numpy()
         }        
         rearranged_data.append(client_data)
 
@@ -629,10 +629,10 @@ def split_label_condition_skew(
             new_test_labels[test_mask] = torch.where(random_values_test <= scaling_label, permuted, original)
 
         client_data = {
-            'train_features': basic_split_data_train[i]['features'].detach(),
-            'train_labels': new_train_labels.detach(),
-            'test_features': basic_split_data_test[i]['features'].detach(),
-            'test_labels': new_test_labels.detach(),
+            'train_features': basic_split_data_train[i]['features'].detach().cpu().numpy(),
+            'train_labels': new_train_labels.detach().cpu().numpy(),
+            'test_features': basic_split_data_test[i]['features'].detach().cpu().numpy(),
+            'test_labels': new_test_labels.detach().cpu().numpy(),
             'cluster': dict_label_maps[i]
         }
         # Append the new dictionary to the list
@@ -734,10 +734,10 @@ def split_label_condition_skew_unbalanced(
             new_test_labels[test_mask] = torch.where(random_values_test <= scaling_label, permuted, original)
 
         client_data = {
-            'train_features': basic_split_data_train[i]['features'].detach(),
-            'train_labels': new_train_labels.detach(),
-            'test_features': basic_split_data_test[i]['features'].detach(),
-            'test_labels': new_test_labels.detach(),
+            'train_features': basic_split_data_train[i]['features'].detach().cpu().numpy(),
+            'train_labels': new_train_labels.detach().cpu().numpy(),
+            'test_features': basic_split_data_test[i]['features'].detach().cpu().numpy(),
+            'test_labels': new_test_labels.detach().cpu().numpy(),
             'cluster': -1
         }
 
@@ -868,10 +868,10 @@ def split_feature_condition_skew(
     for i in range(client_number):
         # Create a new dictionary for each client
         client_data = {
-            'train_features': basic_split_data_train[i]['features'].detach(),
-            'train_labels': basic_split_data_train[i]['labels'].detach(),
-            'test_features': basic_split_data_test[i]['features'].detach(),
-            'test_labels': basic_split_data_test[i]['labels'].detach(),
+            'train_features': basic_split_data_train[i]['features'].detach().cpu().numpy(),
+            'train_labels': basic_split_data_train[i]['labels'].detach().cpu().numpy(),
+            'test_features': basic_split_data_test[i]['features'].detach().cpu().numpy(),
+            'test_labels': basic_split_data_test[i]['labels'].detach().cpu().numpy(),
             'cluster': dict_r_maps[i]
         }
 
@@ -996,10 +996,10 @@ def split_feature_condition_skew_unbalanced(
     for i in range(client_number):
         # Create a new dictionary for each client
         client_data = {
-            'train_features': basic_split_data_train[i]['features'].detach(),
-            'train_labels': basic_split_data_train[i]['labels'].detach(),
-            'test_features': basic_split_data_test[i]['features'].detach(),
-            'test_labels': basic_split_data_test[i]['labels'].detach(),
+            'train_features': basic_split_data_train[i]['features'].detach().cpu().numpy(),
+            'train_labels': basic_split_data_train[i]['labels'].detach().cpu().numpy(),
+            'test_features': basic_split_data_test[i]['features'].detach().cpu().numpy(),
+            'test_labels': basic_split_data_test[i]['labels'].detach().cpu().numpy(),
             'cluster': -1
         }
 
@@ -1117,10 +1117,10 @@ def split_label_condition_skew_with_label_skew(
             new_test_labels[test_mask] = torch.where(random_values_test <= scaling_swapping, permuted, original)
 
         client_data = {
-            'train_features': sub_train_features.detach(),
-            'train_labels': new_train_labels.detach(),
-            'test_features': sub_test_features.detach(),
-            'test_labels': new_test_labels.detach(),
+            'train_features': sub_train_features.detach().cpu().numpy(),
+            'train_labels': new_train_labels.detach().cpu().numpy(),
+            'test_features': sub_test_features.detach().cpu().numpy(),
+            'test_labels': new_test_labels.detach().cpu().numpy(),
             'cluster': -1
         }        
         rearranged_data.append(client_data)
@@ -1245,10 +1245,10 @@ def split_feature_condition_skew_with_label_skew(
             sub_test_features = color_dataset(sub_test_features, test_colors)
         
         client_data = {
-            'train_features': sub_train_features.detach(),
-            'train_labels': sub_train_labels.detach(),
-            'test_features': sub_test_features.detach(),
-            'test_labels': sub_test_labels.detach(),
+            'train_features': sub_train_features.detach().cpu().numpy(),
+            'train_labels': sub_train_labels.detach().cpu().numpy(),
+            'test_features': sub_test_features.detach().cpu().numpy(),
+            'test_labels': sub_test_labels.detach().cpu().numpy(),
             'cluster': -1
         }        
         rearranged_data.append(client_data)
@@ -1335,10 +1335,10 @@ def split_feature_skew_strict(
     # Iterate through the indices of the lists
     for i in range(client_number):
         client_data = {
-            'train_features': basic_split_data_train[i]['features'].detach(),
-            'train_labels': basic_split_data_train[i]['labels'].detach(),
-            'test_features': basic_split_data_test[i]['features'].detach(),
-            'test_labels': basic_split_data_test[i]['labels'].detach(),
+            'train_features': basic_split_data_train[i]['features'].detach().cpu().numpy(),
+            'train_labels': basic_split_data_train[i]['labels'].detach().cpu().numpy(),
+            'test_features': basic_split_data_test[i]['features'].detach().cpu().numpy(),
+            'test_labels': basic_split_data_test[i]['labels'].detach().cpu().numpy(),
             'cluster': client_clusters[i]
         }
         rearranged_data.append(client_data)
@@ -1434,10 +1434,10 @@ def split_label_skew_strict(
         extended_test_labels = np.concatenate([filtered_test_label, filtered_test_label[repeat_test_indices]], axis=0)
 
         rearranged_data.append({
-            'train_features': torch.from_numpy(extended_train_features).detach(),
-            'train_labels': torch.from_numpy(extended_train_labels).detach(),
-            'test_features': torch.from_numpy(extended_test_features).detach(),
-            'test_labels': torch.from_numpy(extended_test_labels).detach(),
+            'train_features': torch.from_numpy(extended_train_features).detach().cpu().numpy(),
+            'train_labels': torch.from_numpy(extended_train_labels).detach().cpu().numpy(),
+            'test_features': torch.from_numpy(extended_test_features).detach().cpu().numpy(),
+            'test_labels': torch.from_numpy(extended_test_labels).detach().cpu().numpy(),
             'cluster': dist
         })
 
@@ -1532,10 +1532,10 @@ def split_label_condition_skew_strict(
             new_test_labels[test_mask] = permuted
 
         client_data = {
-            'train_features': basic_split_data_train[i]['features'].detach(),
-            'train_labels': new_train_labels.detach(),
-            'test_features': basic_split_data_test[i]['features'].detach(),
-            'test_labels': new_test_labels.detach(),
+            'train_features': basic_split_data_train[i]['features'].detach().cpu().numpy(),
+            'train_labels': new_train_labels.detach().cpu().numpy(),
+            'test_features': basic_split_data_test[i]['features'].detach().cpu().numpy(),
+            'test_labels': new_test_labels.detach().cpu().numpy(),
             'cluster': cur_cluster
         }
         # Append the new dictionary to the list
@@ -1658,10 +1658,10 @@ def split_feature_condition_skew_strict(
     for i in range(client_number):
         # Create a new dictionary for each client
         client_data = {
-            'train_features': basic_split_data_train[i]['features'].detach(),
-            'train_labels': basic_split_data_train[i]['labels'].detach(),
-            'test_features': basic_split_data_test[i]['features'].detach(),
-            'test_labels': basic_split_data_test[i]['labels'].detach(),
+            'train_features': basic_split_data_train[i]['features'].detach().cpu().numpy(),
+            'train_labels': basic_split_data_train[i]['labels'].detach().cpu().numpy(),
+            'test_features': basic_split_data_test[i]['features'].detach().cpu().numpy(),
+            'test_labels': basic_split_data_test[i]['labels'].detach().cpu().numpy(),
             'cluster': client_clusters[i]
         }
 

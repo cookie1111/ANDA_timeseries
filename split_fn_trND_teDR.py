@@ -147,10 +147,10 @@ def split_trND_teDR_Px(
     for i in range(client_number):
         # Create a new dictionary for each client
         client_data = {
-            'train_features': basic_split_data_train[i]['features'].detach(),
-            'train_labels': basic_split_data_train[i]['labels'].detach(),
-            'test_features': basic_split_data_test[i]['features'].detach(),
-            'test_labels': basic_split_data_test[i]['labels'].detach()
+            'train_features': basic_split_data_train[i]['features'].detach().cpu().numpy(),
+            'train_labels': basic_split_data_train[i]['labels'].detach().cpu().numpy(),
+            'test_features': basic_split_data_test[i]['features'].detach().cpu().numpy(),
+            'test_labels': basic_split_data_test[i]['labels'].detach().cpu().numpy()
         }
         # Append the new dictionary to the list
         rearranged_data.append(client_data)
@@ -290,10 +290,10 @@ def split_trND_teDR_Py(
             test_idx = (test_idx + 1) % len(permuted_test_labels)
 
         rearranged_data.append({
-            'train_features': torch.cat(client_train_features, dim=0).detach(),
-            'train_labels': torch.cat(client_train_labels, dim=0).detach(),
-            'test_features': torch.cat(client_test_features, dim=0).detach(),
-            'test_labels': torch.cat(client_test_labels, dim=0).detach(),
+            'train_features': torch.cat(client_train_features, dim=0).detach().cpu().numpy(),
+            'train_labels': torch.cat(client_train_labels, dim=0).detach().cpu().numpy(),
+            'test_features': torch.cat(client_test_features, dim=0).detach().cpu().numpy(),
+            'test_labels': torch.cat(client_test_labels, dim=0).detach().cpu().numpy(),
         })
 
     return rearranged_data
@@ -393,10 +393,10 @@ def split_trND_teDR_Py_x(
             new_test_labels[test_mask] = torch.where(random_values_test <= scaling_label, permuted_test, original)
 
         client_data = {
-            'train_features': basic_split_data_train[i]['features'].detach(),
-            'train_labels': new_train_labels.detach(),
-            'test_features': basic_split_data_test[i]['features'].detach(),
-            'test_labels': new_test_labels.detach()
+            'train_features': basic_split_data_train[i]['features'].detach().cpu().numpy(),
+            'train_labels': new_train_labels.detach().cpu().numpy(),
+            'test_features': basic_split_data_test[i]['features'].detach().cpu().numpy(),
+            'test_labels': new_test_labels.detach().cpu().numpy()
         }
 
         rearranged_data.append(client_data)
@@ -507,10 +507,10 @@ def split_trND_teDR_Px_y(
     for i in range(client_number):
         # Create a new dictionary for each client
         client_data = {
-            'train_features': basic_split_data_train[i]['features'].detach(),
-            'train_labels': basic_split_data_train[i]['labels'].detach(),
-            'test_features': basic_split_data_test[i]['features'].detach(),
-            'test_labels': basic_split_data_test[i]['labels'].detach()
+            'train_features': basic_split_data_train[i]['features'].detach().cpu().numpy(),
+            'train_labels': basic_split_data_train[i]['labels'].detach().cpu().numpy(),
+            'test_features': basic_split_data_test[i]['features'].detach().cpu().numpy(),
+            'test_labels': basic_split_data_test[i]['labels'].detach().cpu().numpy()
         }
         # Append the new dictionary to the list
         rearranged_data.append(client_data)
