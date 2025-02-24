@@ -212,8 +212,8 @@ def split_trDR_teND_Px(
                 'epoch_locker_indicator': lockers[i],
                 'epoch_locker_order': i,
                 'cluster': train_dist[i],
-                'train dist': train_dist,
-                'test dist': test_dist
+                'train_dist': train_dist,
+                'test_dist': test_dist
             })
 
         # testing set
@@ -230,8 +230,8 @@ def split_trDR_teND_Px(
             'epoch_locker_order': -1,
             'cluster': test_dist,
             'ideal_dist_num': len(last_dist_set),
-            'train dist': train_dist,
-            'test dist': test_dist
+            'train_dist': train_dist,
+            'test_dist': test_dist
         })
 
         client_Count += 1
@@ -398,8 +398,8 @@ def split_trDR_teND_Py(
                 'epoch_locker_indicator': lockers[i],
                 'epoch_locker_order': i,
                 'cluster': train_dist[i],
-                'train dist': train_dist,
-                'test dist': test_dist
+                'train_dist': train_dist,
+                'test_dist': test_dist
             })
 
         # testing set
@@ -418,8 +418,8 @@ def split_trDR_teND_Py(
             'epoch_locker_order': -1,
             'cluster': test_dist,
             'ideal_dist_num': len(last_dist_set),
-            'train dist': train_dist,
-            'test dist': test_dist
+            'train_dist': train_dist,
+            'test_dist': test_dist
         })
 
         client_Count += 1
@@ -616,8 +616,8 @@ def split_trDR_teND_Py_x(
                 'epoch_locker_indicator': lockers[i],
                 'epoch_locker_order': i,
                 'cluster': train_dist[i],
-                'train dist': train_dist,
-                'test dist': test_dist
+                'train_dist': train_dist,
+                'test_dist': test_dist
             })
 
         # Testing set
@@ -635,8 +635,8 @@ def split_trDR_teND_Py_x(
             'epoch_locker_order': -1,
             'cluster': test_dist,
             'ideal_dist_num': len(last_dist_set),
-            'train dist': train_dist,
-            'test dist': test_dist
+            'train_dist': train_dist,
+            'test_dist': test_dist
         })
 
         client_Count += 1
@@ -854,8 +854,8 @@ def split_trDR_teND_Px_y(
                 'epoch_locker_indicator': lockers[i],
                 'epoch_locker_order': i,
                 'cluster': train_dist[i],
-                'train dist': train_dist,
-                'test dist': test_dist
+                'train_dist': train_dist,
+                'test_dist': test_dist
             })
 
         # testing set
@@ -877,8 +877,8 @@ def split_trDR_teND_Px_y(
             'epoch_locker_order': -1,
             'cluster': test_dist,
             'ideal_dist_num': len(last_dist_set),
-            'train dist': train_dist,
-            'test dist': test_dist
+            'train_dist': train_dist,
+            'test_dist': test_dist
         })
 
         client_Count += 1
