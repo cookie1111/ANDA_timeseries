@@ -496,4 +496,5 @@ Results: (showing data from the first client, both training (rounds 1,2,3) and t
 [Federated learning on non-IID data: A survey](https://www.sciencedirect.com/science/article/pii/S0925231221013254)
 
 # :large_blue_circle: TODO LIST
+- README is not updated. Significant changes are made in the codebase. (24.02.2025)
 - Scripts for quick start with FL libs (PySyft, Flower, etc.)
