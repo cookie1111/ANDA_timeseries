@@ -389,11 +389,22 @@ def split_trDR_teND_Py(
             filtered_train_feature = cur_train_feature[mask]
             filtered_train_label = cur_train_label[mask]
 
+            indices = torch.randint(0, filtered_train_label.shape[0],
+                                    (int(filtered_train_label.shape[0] * (DA_dataset_scaling - 1)),))
+            sampled_data = filtered_train_feature[indices]
+            sampled_label = filtered_train_label[indices]
+
+            cur_train_feature = torch.cat((filtered_train_feature, sampled_data), dim=0)
+            cur_train_label = torch.cat((filtered_train_label, sampled_label), dim=0)
+            permuted_indices = torch.randperm(cur_train_label.shape[0])
+            cur_train_feature = cur_train_feature[permuted_indices]
+            cur_train_label = cur_train_label[permuted_indices]
+
             # Append the cumulative data to rearranged_data
             rearranged_data.append({
                 'train': True,
-                'features': filtered_train_feature.detach().cpu().numpy(),
-                'labels': filtered_train_label.detach().cpu().numpy(),
+                'features': cur_train_feature.detach().cpu().numpy(),
+                'labels': cur_train_label.detach().cpu().numpy(),
                 'client_number': client_Count,
                 'epoch_locker_indicator': lockers[i],
                 'epoch_locker_order': i,
@@ -408,6 +419,8 @@ def split_trDR_teND_Py(
 
         filtered_test_feature = cur_test_feature[mask]
         filtered_test_label = cur_test_label[mask]
+
+
 
         rearranged_data.append({
             'train': False,
