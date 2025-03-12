@@ -366,7 +366,7 @@ def split_trDR_teND_Py(
         cur_test_feature = client_data_test['features']
         cur_test_label = client_data_test['labels']
 
-        # train scaling
+        # Train scaling
         indices = torch.randint(0, cur_train_label.shape[0],
                                 (int(cur_train_label.shape[0] * (DA_dataset_scaling - 1)),))
         sampled_data = cur_train_feature[indices]
@@ -377,6 +377,18 @@ def split_trDR_teND_Py(
         permuted_indices = torch.randperm(cur_train_label.shape[0])
         cur_train_feature = cur_train_feature[permuted_indices]
         cur_train_label = cur_train_label[permuted_indices]
+
+        # Test scaling (same as train)
+        indices = torch.randint(0, cur_test_label.shape[0],
+                                (int(cur_test_label.shape[0] * (DA_dataset_scaling - 1)),))
+        sampled_data = cur_test_feature[indices]
+        sampled_label = cur_test_label[indices]
+
+        cur_test_feature = torch.cat((cur_test_feature, sampled_data), dim=0)
+        cur_test_label = torch.cat((cur_test_label, sampled_label), dim=0)
+        permuted_indices = torch.randperm(cur_test_label.shape[0])
+        cur_test_feature = cur_test_feature[permuted_indices]
+        cur_test_label = cur_test_label[permuted_indices]
 
 
         # generate drifting
