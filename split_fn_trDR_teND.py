@@ -379,16 +379,16 @@ def split_trDR_teND_Py(
         cur_train_label = cur_train_label[permuted_indices]
 
         # Test scaling (same as train)
-        indices = torch.randint(0, cur_test_label.shape[0],
-                                (int(cur_test_label.shape[0] * (DA_dataset_scaling - 1)),))
-        sampled_data = cur_test_feature[indices]
-        sampled_label = cur_test_label[indices]
+        # indices = torch.randint(0, cur_test_label.shape[0],
+        #                         (int(cur_test_label.shape[0] * (DA_dataset_scaling - 1)),))
+        # sampled_data = cur_test_feature[indices]
+        # sampled_label = cur_test_label[indices]
 
-        cur_test_feature = torch.cat((cur_test_feature, sampled_data), dim=0)
-        cur_test_label = torch.cat((cur_test_label, sampled_label), dim=0)
-        permuted_indices = torch.randperm(cur_test_label.shape[0])
-        cur_test_feature = cur_test_feature[permuted_indices]
-        cur_test_label = cur_test_label[permuted_indices]
+        # cur_test_feature = torch.cat((cur_test_feature, sampled_data), dim=0)
+        # cur_test_label = torch.cat((cur_test_label, sampled_label), dim=0)
+        # permuted_indices = torch.randperm(cur_test_label.shape[0])
+        # cur_test_feature = cur_test_feature[permuted_indices]
+        # cur_test_label = cur_test_label[permuted_indices]
 
 
         # generate drifting
@@ -466,6 +466,7 @@ def split_trDR_teND_Py_x(
     DA_seen_last: bool = True,
     DA_last_same_dis: bool = True,
     DA_seen_as_set: bool = False,
+    DA_permu_num: int = 100,
     verbose: bool = True
 ) -> list:
     """
@@ -541,7 +542,18 @@ def split_trDR_teND_Py_x(
 
     # generate swapping bank
     class_list = sorted(np.random.choice(label_num, mixing_num, replace=False).tolist())
-    all_permutations = list(permutations(class_list))
+
+    # all_permutations = list(permutations(class_list))
+    all_permutations = []
+    seen = set()
+    while len(all_permutations) < DA_permu_num:
+        perm = tuple(np.random.permutation(class_list))
+        if perm not in seen:
+            seen.add(perm)
+            all_permutations.append(perm)
+
+
+    print("Flag 1")
 
     swapping_bank = {i+1: {class_list[j]: perm[j] for j in range(mixing_num)}
                      for i, perm in enumerate(all_permutations)}
@@ -556,7 +568,7 @@ def split_trDR_teND_Py_x(
     last_dist_set = set()  # Use a set to avoid duplicates
     last_dist_list = []
     test_dist_list = []
-    dist_bank = list(range(1, math.factorial(mixing_num) + 1))
+    dist_bank = list(range(1, min(math.factorial(mixing_num),DA_permu_num) + 1))
 
     for i in range(client_number):
         cur_DA_dist = generate_DA_dist(dist_bank, DA_epoch_locker_num, DA_max_dist, DA_continual_divergence)
