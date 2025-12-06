@@ -5,6 +5,8 @@
 # :large_blue_circle: ABOUT ANDA
 **A** **N**on-IID **D**ata generator supporting **A**ny kind. Generate your non-IID datasets with one line.
 
+<sub>06/12/2025: There are minor bugs in plot and P(Y|X) gen functions.</sub>
+
 # :large_blue_circle: FEATURES
 - Repeat your Federated Learning (FL) experiments with non-IID datasets and without saving it!
 - Supporting five public datasets: **MNIST**, **EMNIST**, **FMNIST**, **CIFAR10**, and **CIFAR100**
