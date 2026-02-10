@@ -500,3 +500,29 @@ Results: (showing data from the first client, both training (rounds 1,2,3) and t
 # :large_blue_circle: TODO LIST
 - A few additional customizations for the dynamic modes have been made but not updated in README page.)
 - Scripts for quick start with FL libs (PySyft, Flower, etc.)
+
+# :large_blue_circle: Citation
+If you find this work useful for your research, please cite the following papers:
+
+```bibtex
+@misc{li2026federatedlearningprofilemapping,
+      title={Federated Learning with Profile Mapping under Distribution Shifts and Drifts}, 
+      author={Mohan Li and Dario Fenoglio and Martin Gjoreski and Marc Langheinrich},
+      year={2026},
+      eprint={2602.07671},
+      archivePrefix={arXiv},
+      primaryClass={cs.LG},
+      url={[https://arxiv.org/abs/2602.07671](https://arxiv.org/abs/2602.07671)}, 
+}
+
+@misc{fenoglio2025fluxefficientdescriptordrivenclustered,
+      title={FLUX: Efficient Descriptor-Driven Clustered Federated Learning under Arbitrary Distribution Shifts}, 
+      author={Dario Fenoglio and Mohan Li and Pietro Barbiero and Nicholas D. Lane and Marc Langheinrich and Martin Gjoreski},
+      year={2025},
+      eprint={2511.22305},
+      archivePrefix={arXiv},
+      primaryClass={cs.LG},
+      url={[https://arxiv.org/abs/2511.22305](https://arxiv.org/abs/2511.22305)}, 
+}
+```
+
