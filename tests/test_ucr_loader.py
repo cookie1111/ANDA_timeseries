@@ -72,7 +72,7 @@ class TestSplitGates:
             anda.load_split_datasets(dataset_name="UCR:ECG200")
 
     def test_load_split_datasets_dynamic_rejects_ucr(self):
-        with pytest.raises(NotImplementedError, match="UCR"):
+        with pytest.raises(NotImplementedError, match="not supported"):
             anda.load_split_datasets_dynamic(dataset_name="UCR:ECG200")
 
 

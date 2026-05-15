@@ -418,10 +418,11 @@ def load_split_datasets_dynamic(
 
     if dataset_name.startswith(UCR_PREFIX):
         raise NotImplementedError(
-            "Drifting/dynamic splits for UCR time series datasets are not implemented yet. "
-            "Time-series-specific shifts (gaussian noise, amplitude scaling, etc.) are still "
-            "being designed. Use `load_full_datasets(dataset_name)` directly to obtain the "
-            "raw tensors for now."
+            "Drifting/dynamic splits are not supported for UCR time series datasets "
+            "and there are no current plans to add them. Use `load_split_datasets` "
+            "with one of the static TS variants (feature_skew, label_skew, "
+            "feature_label_skew, feature_skew_unbalanced, label_skew_unbalanced), or "
+            "call `load_full_datasets(dataset_name)` directly for the raw tensors."
         )
 
     train_features, train_labels, test_features, test_labels = load_full_datasets(dataset_name)
