@@ -4,6 +4,10 @@ from . import split_fn_trND_teDR
 from . import split_fn_trDA_teND
 from . import split_fn_trDR_teDR
 from . import split_fn_trDR_teND
+from . import split_fn_ts
+from . import transforms_ts
+from . import windowing_ts
+from . import pipeline_ts
 from . import utils
 from .split_fn import *
 from .split_fn_trDA_teDR import *
@@ -11,6 +15,10 @@ from .split_fn_trND_teDR import *
 from .split_fn_trDA_teND import *
 from .split_fn_trDR_teDR import *
 from .split_fn_trDR_teND import *
+from .split_fn_ts import *
+from .transforms_ts import *
+from .windowing_ts import *
+from .pipeline_ts import *
 from .utils import *
 
 def set_seed(
@@ -18,7 +26,7 @@ def set_seed(
 ):
     '''
     Set the random seed for reproducibility.
-    
+
     Args:
         RANDOM_SEED (int): The random seed to set.
     '''
@@ -30,6 +38,7 @@ def set_seed(
     split_fn_trDA_teND.set_seed(RANDOM_SEED)
     split_fn_trDR_teDR.set_seed(RANDOM_SEED)
     split_fn_trDR_teND.set_seed(RANDOM_SEED)
+    split_fn_ts.set_seed(RANDOM_SEED)
     utils.set_seed(RANDOM_SEED)
 
 def load_split_datasets(
@@ -69,14 +78,33 @@ def load_split_datasets(
     set_seed(random_seed)
 
     if dataset_name.startswith(UCR_PREFIX):
-        raise NotImplementedError(
-            "Non-IID splitting for UCR time series datasets is not implemented yet. "
-            "The image-based shifts (rotation, coloring) used by the existing split "
-            "functions do not apply to time series, and the time-series-specific shifts "
-            "(gaussian noise, amplitude scaling, etc.) are still being designed. "
-            "Use `load_full_datasets(dataset_name)` directly to obtain the raw tensors "
-            "for now."
+        names = utils._parse_ucr_selector(dataset_name)
+        if len(names) != 1:
+            raise ValueError(
+                "split_feature_skew_ts currently supports a single UCR dataset per call; "
+                f"received {len(names)} via {dataset_name!r}. Load and split each "
+                "dataset separately for now."
+            )
+        if non_iid_type != "feature_skew":
+            raise NotImplementedError(
+                f"non_iid_type={non_iid_type!r} for UCR datasets is not implemented yet. "
+                "Only 'feature_skew' is wired up; the other variants (label_skew, "
+                "feature_label_skew, *_unbalanced, *_condition_skew, *_strict) will follow."
+            )
+        if mode != "manual":
+            raise NotImplementedError(
+                "Only mode='manual' is supported for UCR datasets right now. "
+                "Pass transforms_pool (and any other TS kwargs) explicitly."
+            )
+
+        train_features, train_labels, test_features, test_labels = load_full_datasets(dataset_name)
+        rearranged_data = split_feature_skew_ts(
+            train_features, train_labels, test_features, test_labels,
+            client_number=client_number, verbose=verbose, **kwargs,
         )
+        # count_labels_static / plot_static assume 10-class image data and image
+        # tensor shapes; they don't apply to UCR. Add TS-aware versions later.
+        return rearranged_data
 
     train_features, train_labels, test_features, test_labels = load_full_datasets(dataset_name)
 
