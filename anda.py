@@ -81,15 +81,9 @@ def load_split_datasets(
         names = utils._parse_ucr_selector(dataset_name)
         if len(names) != 1:
             raise ValueError(
-                "split_feature_skew_ts currently supports a single UCR dataset per call; "
+                "Per-dataset split currently supports a single UCR dataset per call; "
                 f"received {len(names)} via {dataset_name!r}. Load and split each "
                 "dataset separately for now."
-            )
-        if non_iid_type != "feature_skew":
-            raise NotImplementedError(
-                f"non_iid_type={non_iid_type!r} for UCR datasets is not implemented yet. "
-                "Only 'feature_skew' is wired up; the other variants (label_skew, "
-                "feature_label_skew, *_unbalanced, *_condition_skew, *_strict) will follow."
             )
         if mode != "manual":
             raise NotImplementedError(
@@ -97,8 +91,20 @@ def load_split_datasets(
                 "Pass transforms_pool (and any other TS kwargs) explicitly."
             )
 
+        fn_name = f"split_{non_iid_type}_ts"
+        fn = globals().get(fn_name)
+        if fn is None:
+            available = sorted(
+                k[len("split_"):-len("_ts")] for k in globals()
+                if k.startswith("split_") and k.endswith("_ts") and callable(globals()[k])
+            )
+            raise NotImplementedError(
+                f"non_iid_type={non_iid_type!r} for UCR datasets is not implemented yet. "
+                f"Available TS variants: {available}."
+            )
+
         train_features, train_labels, test_features, test_labels = load_full_datasets(dataset_name)
-        rearranged_data = split_feature_skew_ts(
+        rearranged_data = fn(
             train_features, train_labels, test_features, test_labels,
             client_number=client_number, verbose=verbose, **kwargs,
         )

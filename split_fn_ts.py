@@ -2,9 +2,11 @@ from collections import Counter, defaultdict
 
 import numpy as np
 import torch
+import torch.nn.functional as F
+from scipy.stats import truncnorm
 
 from .transforms_ts import TRANSFORM_BUCKETS, TRANSFORMS, apply_transform
-from .utils import split_basic
+from .utils import create_sub_dataset, split_basic, split_unbalanced
 from .windowing_ts import window_series
 
 
@@ -118,6 +120,97 @@ def _apply_per_sample_transforms(features: torch.Tensor, assignments: list) -> t
     return out
 
 
+def _per_client_transform_pair(
+    tr_x: torch.Tensor,
+    te_x: torch.Tensor,
+    transforms_pool: list,
+    magnitude_buckets,
+    custom_buckets: dict,
+    scaling_low: float,
+    scaling_high: float,
+    random_order: bool,
+    verbose: bool,
+    client_id: int,
+):
+    '''Sample one (transform, bucket) assignment per row over the combined
+    train+test batch (so a client gets the same pool ordering and scaling for
+    both), then apply transforms.'''
+    pool = _build_pool(transforms_pool, magnitude_buckets, custom_buckets)
+    client_scaling = float(np.random.uniform(scaling_low, scaling_high))
+    n_tr = int(tr_x.shape[0])
+    n_te = int(te_x.shape[0])
+    total = assigning_transform_features(
+        n_tr + n_te, pool, client_scaling, random_order=random_order
+    )
+    tr_assign = total[:n_tr]
+    te_assign = total[n_tr:]
+
+    if verbose:
+        counts = Counter(name for name, _ in total)
+        print(
+            f"Client {client_id} | scaling={client_scaling:.3f} | "
+            f"transform counts: {dict(counts)}"
+        )
+
+    tr_x = _apply_per_sample_transforms(tr_x, tr_assign) if n_tr else tr_x
+    te_x = _apply_per_sample_transforms(te_x, te_assign) if n_te else te_x
+    return tr_x, te_x
+
+
+def _window_pair(
+    tr_x: torch.Tensor,
+    tr_y: torch.Tensor,
+    te_x: torch.Tensor,
+    te_y: torch.Tensor,
+    window_size: int,
+    stride: int,
+    drop_last: bool,
+):
+    '''Window a (train, test) feature/label pair if window_size is set.'''
+    if window_size is None:
+        return tr_x, tr_y, te_x, te_y
+    if tr_x.shape[0] > 0:
+        tr_x, tr_y = window_series(tr_x, tr_y, window_size, stride=stride, drop_last=drop_last)
+    if te_x.shape[0] > 0:
+        te_x, te_y = window_series(te_x, te_y, window_size, stride=stride, drop_last=drop_last)
+    return tr_x, tr_y, te_x, te_y
+
+
+def _calculate_probabilities_ts(labels: torch.Tensor, scaling: float) -> torch.Tensor:
+    '''Per-class softmax probabilities scaled by class frequency.
+
+    Equivalent to `utils.calculate_probabilities` but auto-sizes the probability
+    vector to the number of classes present in `labels` instead of hardcoding 10
+    (which is correct for MNIST/CIFAR10 but wrong for UCR datasets with K != 10
+    classes — phantom classes would dilute the softmax).
+    '''
+    if labels.numel() == 0:
+        return torch.tensor([], dtype=torch.float32)
+    num_classes = int(labels.max().item()) + 1
+    label_counts = torch.bincount(labels, minlength=num_classes).float()
+    scaled_counts = label_counts ** scaling
+    return F.softmax(scaled_counts, dim=0)
+
+
+def _pack_client(tr_x, tr_y, te_x, te_y, cluster=-1) -> dict:
+    return {
+        'train_features': tr_x.detach().cpu().numpy(),
+        'train_labels': tr_y.detach().cpu().numpy(),
+        'test_features': te_x.detach().cpu().numpy(),
+        'test_labels': te_y.detach().cpu().numpy(),
+        'cluster': cluster,
+    }
+
+
+def _validate_ts_inputs(train_features, train_labels, test_features, test_labels):
+    if train_features.dim() != 3 or test_features.dim() != 3:
+        raise ValueError("Features must be 3D tensors of shape (N, C, T).")
+    if train_features.shape[0] != train_labels.shape[0]:
+        raise ValueError("train_features and train_labels must have matching N.")
+    if test_features.shape[0] != test_labels.shape[0]:
+        raise ValueError("test_features and test_labels must have matching N.")
+
+
 def split_feature_skew_ts(
     train_features: torch.Tensor,
     train_labels: torch.Tensor,
@@ -141,9 +234,6 @@ def split_feature_skew_ts(
     clusters and inject feature heterogeneity by giving each client its own
     softmax distribution over a discrete (transform, bucket) pool.
 
-    The flow per client is: basic random split -> per-sample (transform, bucket)
-    assignment via softmax -> apply transforms in batches -> optional windowing.
-
     Args:
         train_features, train_labels, test_features, test_labels (torch.Tensor):
             Inputs of shape (N, C, T) and (N,).
@@ -151,73 +241,269 @@ def split_feature_skew_ts(
         transforms_pool (list[str]): Names of registered transforms to expose
             to clients. Required.
         magnitude_buckets (int): Number of magnitude buckets to keep per
-            transform. Evenly samples from the transform's default bucket list.
-        custom_buckets (dict[str, list[dict]] | None): Override the default
-            buckets for specific transforms.
+            transform.
+        custom_buckets (dict[str, list[dict]] | None): Override default buckets
+            for specific transforms.
         scaling_low, scaling_high (float): Bounds on the per-client softmax
-            peakiness (drawn uniformly per client).
-        random_order (bool): Permute the pool per client so different clients
-            favour different pool entries.
-        window_size, stride, drop_last: Forwarded to `window_series` after the
-            transforms are applied. window_size=None skips windowing.
-        permute (bool): Shuffle samples before splitting into clients.
-        verbose (bool): Print per-client transform assignment counts.
+            peakiness.
+        random_order (bool): Permute the pool per client.
+        window_size, stride, drop_last: Forwarded to `window_series` after
+            transforms are applied.
+        permute (bool): Shuffle samples before basic split.
+        verbose (bool): Print per-client transform counts.
 
     Returns:
-        list[dict]: One dict per client with keys `train_features`,
-            `train_labels`, `test_features`, `test_labels`, `cluster`. Feature
-            and label values are numpy arrays, matching the image split_fn
-            output convention.
+        list[dict]: One dict per client with `train_features`, `train_labels`,
+            `test_features`, `test_labels`, `cluster=-1`.
     '''
     if transforms_pool is None or len(transforms_pool) == 0:
         raise ValueError("transforms_pool must be a non-empty list of registered transform names.")
     if scaling_high < scaling_low:
         raise ValueError("scaling_high must be >= scaling_low.")
-    if train_features.dim() != 3 or test_features.dim() != 3:
-        raise ValueError("Features must be 3D tensors of shape (N, C, T).")
-    if train_features.shape[0] != train_labels.shape[0]:
-        raise ValueError("train_features and train_labels must have matching N.")
-    if test_features.shape[0] != test_labels.shape[0]:
-        raise ValueError("test_features and test_labels must have matching N.")
+    _validate_ts_inputs(train_features, train_labels, test_features, test_labels)
 
     train_clients = split_basic(train_features, train_labels, client_number, permute=permute)
     test_clients = split_basic(test_features, test_labels, client_number, permute=permute)
 
     rearranged = []
     for cid, (tr, te) in enumerate(zip(train_clients, test_clients)):
-        pool = _build_pool(transforms_pool, magnitude_buckets, custom_buckets)
-        client_scaling = float(np.random.uniform(scaling_low, scaling_high))
-
-        len_tr = int(tr['labels'].shape[0])
-        len_te = int(te['labels'].shape[0])
-        total = assigning_transform_features(
-            len_tr + len_te, pool, client_scaling, random_order=random_order
+        tr_x, te_x = _per_client_transform_pair(
+            tr['features'], te['features'], transforms_pool, magnitude_buckets,
+            custom_buckets, scaling_low, scaling_high, random_order, verbose, cid,
         )
-        tr_assign = total[:len_tr]
-        te_assign = total[len_tr:]
+        tr_x, tr_y, te_x, te_y = _window_pair(
+            tr_x, tr['labels'], te_x, te['labels'], window_size, stride, drop_last,
+        )
+        rearranged.append(_pack_client(tr_x, tr_y, te_x, te_y))
+
+    return rearranged
+
+
+def split_label_skew_ts(
+    train_features: torch.Tensor,
+    train_labels: torch.Tensor,
+    test_features: torch.Tensor,
+    test_labels: torch.Tensor,
+    client_number: int = 10,
+    scaling_label_low: float = 0.4,
+    scaling_label_high: float = 0.6,
+    window_size: int = None,
+    stride: int = None,
+    drop_last: bool = True,
+    verbose: bool = False,
+) -> list:
+    '''
+    Time-series counterpart of `split_label_skew`: per-client sub-sample the
+    training and test pools using a softmax over class frequency so each client
+    sees a skewed class distribution. No X-side augmentation.
+
+    The softmax is computed against the actual class count of the TS labels
+    (via `_calculate_probabilities_ts`) so it is correct for any K-class
+    dataset, unlike the image-side helper which hardcodes K=10.
+    '''
+    _validate_ts_inputs(train_features, train_labels, test_features, test_labels)
+    if scaling_label_high < scaling_label_low:
+        raise ValueError("scaling_label_high must be >= scaling_label_low.")
+
+    avg_tr = train_labels.shape[0] // client_number
+    avg_te = test_labels.shape[0] // client_number
+
+    rem_tr_x, rem_tr_y = train_features, train_labels
+    rem_te_x, rem_te_y = test_features, test_labels
+
+    rearranged = []
+    for cid in range(client_number):
+        client_scaling = float(np.random.uniform(scaling_label_low, scaling_label_high))
+        # The 0.6 dampening factor here matches split_label_skew's calling convention;
+        # it keeps the effective per-client skew comparable to the image version.
+        probs = _calculate_probabilities_ts(rem_tr_y, client_scaling * 0.6)
+
+        sub_tr_x, sub_tr_y, rem_tr_x, rem_tr_y = create_sub_dataset(rem_tr_x, rem_tr_y, probs, avg_tr)
+        sub_te_x, sub_te_y, rem_te_x, rem_te_y = create_sub_dataset(rem_te_x, rem_te_y, probs, avg_te)
 
         if verbose:
-            counts = Counter(name for name, _ in total)
+            counts = Counter(sub_tr_y.tolist())
+            print(f"Client {cid} | scaling={client_scaling:.3f} | label counts: {dict(counts)}")
+
+        sub_tr_x, sub_tr_y, sub_te_x, sub_te_y = _window_pair(
+            sub_tr_x, sub_tr_y, sub_te_x, sub_te_y, window_size, stride, drop_last,
+        )
+        rearranged.append(_pack_client(sub_tr_x, sub_tr_y, sub_te_x, sub_te_y))
+
+    return rearranged
+
+
+def split_feature_label_skew_ts(
+    train_features: torch.Tensor,
+    train_labels: torch.Tensor,
+    test_features: torch.Tensor,
+    test_labels: torch.Tensor,
+    client_number: int = 10,
+    transforms_pool: list = None,
+    magnitude_buckets: int = 3,
+    custom_buckets: dict = None,
+    scaling_label_low: float = 0.4,
+    scaling_label_high: float = 0.6,
+    scaling_low: float = 0.0,
+    scaling_high: float = 0.4,
+    random_order: bool = True,
+    window_size: int = None,
+    stride: int = None,
+    drop_last: bool = True,
+    verbose: bool = False,
+) -> list:
+    '''
+    Time-series counterpart of `split_feature_label_skew`: combines label-based
+    sub-sampling with per-sample (transform, bucket) assignment. Each client
+    gets both a class-frequency softmax and a transforms-pool softmax.
+    '''
+    if transforms_pool is None or len(transforms_pool) == 0:
+        raise ValueError("transforms_pool must be a non-empty list of registered transform names.")
+    if scaling_high < scaling_low or scaling_label_high < scaling_label_low:
+        raise ValueError("scaling_*_high must be >= scaling_*_low.")
+    _validate_ts_inputs(train_features, train_labels, test_features, test_labels)
+
+    avg_tr = train_labels.shape[0] // client_number
+    avg_te = test_labels.shape[0] // client_number
+
+    rem_tr_x, rem_tr_y = train_features, train_labels
+    rem_te_x, rem_te_y = test_features, test_labels
+
+    rearranged = []
+    for cid in range(client_number):
+        label_scale = float(np.random.uniform(scaling_label_low, scaling_label_high))
+        probs = _calculate_probabilities_ts(rem_tr_y, label_scale)
+
+        sub_tr_x, sub_tr_y, rem_tr_x, rem_tr_y = create_sub_dataset(rem_tr_x, rem_tr_y, probs, avg_tr)
+        sub_te_x, sub_te_y, rem_te_x, rem_te_y = create_sub_dataset(rem_te_x, rem_te_y, probs, avg_te)
+
+        sub_tr_x, sub_te_x = _per_client_transform_pair(
+            sub_tr_x, sub_te_x, transforms_pool, magnitude_buckets, custom_buckets,
+            scaling_low, scaling_high, random_order, verbose, cid,
+        )
+        sub_tr_x, sub_tr_y, sub_te_x, sub_te_y = _window_pair(
+            sub_tr_x, sub_tr_y, sub_te_x, sub_te_y, window_size, stride, drop_last,
+        )
+        rearranged.append(_pack_client(sub_tr_x, sub_tr_y, sub_te_x, sub_te_y))
+
+    return rearranged
+
+
+def split_feature_skew_unbalanced_ts(
+    train_features: torch.Tensor,
+    train_labels: torch.Tensor,
+    test_features: torch.Tensor,
+    test_labels: torch.Tensor,
+    client_number: int = 10,
+    transforms_pool: list = None,
+    magnitude_buckets: int = 3,
+    custom_buckets: dict = None,
+    scaling_low: float = 0.0,
+    scaling_high: float = 0.4,
+    random_order: bool = True,
+    std_dev: float = 0.1,
+    window_size: int = None,
+    stride: int = None,
+    drop_last: bool = True,
+    permute: bool = True,
+    verbose: bool = False,
+) -> list:
+    '''
+    Unbalanced variant of `split_feature_skew_ts`: each client receives an
+    unequal number of samples drawn via a truncated-normal share of the total
+    (per `split_unbalanced`), then feature heterogeneity is applied as in
+    `split_feature_skew_ts`.
+    '''
+    if transforms_pool is None or len(transforms_pool) == 0:
+        raise ValueError("transforms_pool must be a non-empty list of registered transform names.")
+    if scaling_high < scaling_low:
+        raise ValueError("scaling_high must be >= scaling_low.")
+    if std_dev <= 0:
+        raise ValueError("std_dev must be > 0.")
+    _validate_ts_inputs(train_features, train_labels, test_features, test_labels)
+
+    train_clients = split_unbalanced(train_features, train_labels, client_number, std_dev, permute)
+    test_clients = split_unbalanced(test_features, test_labels, client_number, std_dev, permute)
+
+    if verbose:
+        for i, (tr, te) in enumerate(zip(train_clients, test_clients)):
+            print(f"Client {i} | train n={tr['labels'].shape[0]} | test n={te['labels'].shape[0]}")
+
+    rearranged = []
+    for cid, (tr, te) in enumerate(zip(train_clients, test_clients)):
+        tr_x, te_x = _per_client_transform_pair(
+            tr['features'], te['features'], transforms_pool, magnitude_buckets,
+            custom_buckets, scaling_low, scaling_high, random_order, verbose, cid,
+        )
+        tr_x, tr_y, te_x, te_y = _window_pair(
+            tr_x, tr['labels'], te_x, te['labels'], window_size, stride, drop_last,
+        )
+        rearranged.append(_pack_client(tr_x, tr_y, te_x, te_y))
+
+    return rearranged
+
+
+def split_label_skew_unbalanced_ts(
+    train_features: torch.Tensor,
+    train_labels: torch.Tensor,
+    test_features: torch.Tensor,
+    test_labels: torch.Tensor,
+    client_number: int = 10,
+    scaling_label_low: float = 0.4,
+    scaling_label_high: float = 0.6,
+    std_dev: float = 0.1,
+    window_size: int = None,
+    stride: int = None,
+    drop_last: bool = True,
+    verbose: bool = False,
+) -> list:
+    '''
+    Unbalanced variant of `split_label_skew_ts`: each client gets an unequal
+    number of samples drawn via truncated-normal shares, then per-client label
+    softmax skew is applied via class-frequency-aware probabilities.
+    '''
+    _validate_ts_inputs(train_features, train_labels, test_features, test_labels)
+    if scaling_label_high < scaling_label_low:
+        raise ValueError("scaling_label_high must be >= scaling_label_low.")
+    if std_dev <= 0:
+        raise ValueError("std_dev must be > 0.")
+
+    def _shares(total, n_clients):
+        pct = truncnorm.rvs(-0.5 / std_dev, 0.5 / std_dev, loc=0.5, scale=std_dev, size=n_clients)
+        normalized = pct / pct.sum()
+        counts = (normalized * total).astype(int)
+        # Patch rounding drift so we land exactly on `total`.
+        diff = total - counts.sum()
+        for i in range(abs(diff)):
+            counts[i % n_clients] += np.sign(diff)
+        return counts
+
+    train_counts = _shares(train_labels.shape[0], client_number)
+    test_counts = _shares(test_labels.shape[0], client_number)
+
+    rem_tr_x, rem_tr_y = train_features, train_labels
+    rem_te_x, rem_te_y = test_features, test_labels
+
+    rearranged = []
+    for cid in range(client_number):
+        client_scaling = float(np.random.uniform(scaling_label_low, scaling_label_high))
+        probs = _calculate_probabilities_ts(rem_tr_y, client_scaling)
+
+        n_tr = int(train_counts[cid])
+        n_te = int(test_counts[cid])
+        sub_tr_x, sub_tr_y, rem_tr_x, rem_tr_y = create_sub_dataset(rem_tr_x, rem_tr_y, probs, n_tr)
+        sub_te_x, sub_te_y, rem_te_x, rem_te_y = create_sub_dataset(rem_te_x, rem_te_y, probs, n_te)
+
+        if verbose:
+            counts = Counter(sub_tr_y.tolist())
             print(
-                f"Client {cid} | scaling={client_scaling:.3f} | "
-                f"transform counts: {dict(counts)}"
+                f"Client {cid} | train n={n_tr} test n={n_te} | "
+                f"scaling={client_scaling:.3f} | label counts: {dict(counts)}"
             )
 
-        tr_x = _apply_per_sample_transforms(tr['features'], tr_assign)
-        te_x = _apply_per_sample_transforms(te['features'], te_assign)
-        tr_y = tr['labels']
-        te_y = te['labels']
-
-        if window_size is not None:
-            tr_x, tr_y = window_series(tr_x, tr_y, window_size, stride=stride, drop_last=drop_last)
-            te_x, te_y = window_series(te_x, te_y, window_size, stride=stride, drop_last=drop_last)
-
-        rearranged.append({
-            'train_features': tr_x.detach().cpu().numpy(),
-            'train_labels': tr_y.detach().cpu().numpy(),
-            'test_features': te_x.detach().cpu().numpy(),
-            'test_labels': te_y.detach().cpu().numpy(),
-            'cluster': -1,
-        })
+        sub_tr_x, sub_tr_y, sub_te_x, sub_te_y = _window_pair(
+            sub_tr_x, sub_tr_y, sub_te_x, sub_te_y, window_size, stride, drop_last,
+        )
+        rearranged.append(_pack_client(sub_tr_x, sub_tr_y, sub_te_x, sub_te_y))
 
     return rearranged

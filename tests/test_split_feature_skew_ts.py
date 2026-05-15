@@ -222,11 +222,11 @@ class TestAndaDispatch:
                 mode="auto",
             )
 
-    def test_load_split_datasets_rejects_label_skew_for_ucr(self):
-        with pytest.raises(NotImplementedError, match="label_skew"):
+    def test_load_split_datasets_rejects_unknown_non_iid_type(self):
+        with pytest.raises(NotImplementedError, match="totally_made_up"):
             anda.load_split_datasets(
                 dataset_name="UCR:ECG200",
-                non_iid_type="label_skew",
+                non_iid_type="totally_made_up",
                 mode="manual",
             )
 
