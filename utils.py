@@ -7,6 +7,39 @@ import torch
 import torch.nn.functional as F
 from torchvision import datasets, transforms
 
+UCR_PREFIX = "UCR:"
+
+UCR_DATASETS = [
+    "ACSF1", "Adiac", "AllGestureWiimoteX", "AllGestureWiimoteY", "AllGestureWiimoteZ",
+    "ArrowHead", "Beef", "BeetleFly", "BirdChicken", "BME", "Car", "CBF", "Chinatown",
+    "ChlorineConcentration", "CinCECGTorso", "Coffee", "Computers", "CricketX", "CricketY",
+    "CricketZ", "Crop", "DiatomSizeReduction", "DistalPhalanxOutlineAgeGroup",
+    "DistalPhalanxOutlineCorrect", "DistalPhalanxTW", "DodgerLoopDay", "DodgerLoopGame",
+    "DodgerLoopWeekend", "Earthquakes", "ECG200", "ECG5000", "ECGFiveDays", "ElectricDevices",
+    "EOGHorizontalSignal", "EOGVerticalSignal", "EthanolLevel", "FaceAll", "FaceFour",
+    "FacesUCR", "FiftyWords", "Fish", "FordA", "FordB", "FreezerRegularTrain",
+    "FreezerSmallTrain", "Fungi", "GestureMidAirD1", "GestureMidAirD2", "GestureMidAirD3",
+    "GesturePebbleZ1", "GesturePebbleZ2", "GunPoint", "GunPointAgeSpan",
+    "GunPointMaleVersusFemale", "GunPointOldVersusYoung", "Ham", "HandOutlines", "Haptics",
+    "Herring", "HouseTwenty", "InlineSkate", "InsectEPGRegularTrain", "InsectEPGSmallTrain",
+    "InsectWingbeatSound", "ItalyPowerDemand", "LargeKitchenAppliances", "Lightning2",
+    "Lightning7", "Mallat", "Meat", "MedicalImages", "MelbournePedestrian",
+    "MiddlePhalanxOutlineAgeGroup", "MiddlePhalanxOutlineCorrect", "MiddlePhalanxTW",
+    "MixedShapesRegularTrain", "MixedShapesSmallTrain", "MoteStrain",
+    "NonInvasiveFetalECGThorax1", "NonInvasiveFetalECGThorax2", "OliveOil", "OSULeaf",
+    "PhalangesOutlinesCorrect", "Phoneme", "PickupGestureWiimoteZ", "PigAirwayPressure",
+    "PigArtPressure", "PigCVP", "PLAID", "Plane", "PowerCons",
+    "ProximalPhalanxOutlineAgeGroup", "ProximalPhalanxOutlineCorrect", "ProximalPhalanxTW",
+    "RefrigerationDevices", "Rock", "ScreenType", "SemgHandGenderCh2", "SemgHandMovementCh2",
+    "SemgHandSubjectCh2", "ShakeGestureWiimoteZ", "ShapeletSim", "ShapesAll",
+    "SmallKitchenAppliances", "SmoothSubspace", "SonyAIBORobotSurface1",
+    "SonyAIBORobotSurface2", "StarLightCurves", "Strawberry", "SwedishLeaf", "Symbols",
+    "SyntheticControl", "ToeSegmentation1", "ToeSegmentation2", "Trace", "TwoLeadECG",
+    "TwoPatterns", "UMD", "UWaveGestureLibraryAll", "UWaveGestureLibraryX",
+    "UWaveGestureLibraryY", "UWaveGestureLibraryZ", "Wafer", "Wine", "WordSynonyms",
+    "Worms", "WormsTwoClass", "Yoga",
+]
+
 def set_seed(
     RANDOM_SEED: int = 42
 ):
@@ -50,20 +83,91 @@ def merge_data(
 
     return [train_features, train_labels, test_features, test_labels]
 
+def _parse_ucr_selector(dataset_name: str) -> list:
+    '''
+    Parse a UCR dataset_name selector into the list of dataset names it refers to.
+
+    Accepted forms:
+        "UCR:ECG200"            -> ["ECG200"]
+        "UCR:ALL"               -> all known UCR 2018 datasets
+        "UCR:[ECG200, Adiac]"   -> ["ECG200", "Adiac"]
+    '''
+    spec = dataset_name[len(UCR_PREFIX):].strip()
+    if spec.upper() == "ALL":
+        return list(UCR_DATASETS)
+    if spec.startswith("[") and spec.endswith("]"):
+        names = [n.strip() for n in spec[1:-1].split(",") if n.strip()]
+        if not names:
+            raise ValueError(f"Empty UCR dataset list in selector: {dataset_name!r}")
+        return names
+    if not spec:
+        raise ValueError(f"Missing UCR dataset name in selector: {dataset_name!r}")
+    return [spec]
+
+def _load_one_ucr(name: str) -> list:
+    '''
+    Load a single UCR dataset via sktime and return [train_x, train_y, test_x, test_y]
+    as torch tensors with features shaped (N, C, T) and integer-encoded labels.
+    '''
+    try:
+        from sktime.datasets import load_UCR_UEA_dataset
+    except ImportError as e:
+        raise ImportError(
+            "Loading UCR datasets requires sktime. Install with `pip install sktime`."
+        ) from e
+
+    try:
+        X_train, y_train = load_UCR_UEA_dataset(name=name, split="train", return_type="numpy3D")
+        X_test, y_test = load_UCR_UEA_dataset(name=name, split="test", return_type="numpy3D")
+    except Exception as e:
+        raise RuntimeError(
+            f"Failed to load UCR dataset {name!r} via sktime. "
+            f"Variable-length datasets are not supported by this loader yet. "
+            f"Underlying error: {e}"
+        ) from e
+
+    all_labels = np.concatenate([np.asarray(y_train), np.asarray(y_test)])
+    classes = np.unique(all_labels)
+    label_to_idx = {c: i for i, c in enumerate(classes)}
+    y_train_idx = np.array([label_to_idx[v] for v in y_train], dtype=np.int64)
+    y_test_idx = np.array([label_to_idx[v] for v in y_test], dtype=np.int64)
+
+    train_features = torch.from_numpy(np.asarray(X_train)).float()
+    test_features = torch.from_numpy(np.asarray(X_test)).float()
+    train_labels = torch.from_numpy(y_train_idx)
+    test_labels = torch.from_numpy(y_test_idx)
+
+    return [train_features, train_labels, test_features, test_labels]
+
 def load_full_datasets(
     dataset_name: str = "MNIST",
-) -> list:
+):
     '''
-    Load datasets into four separate parts: train labels, train images, test labels, test images.
+    Load datasets into four separate parts: train features, train labels, test features, test labels.
 
     Args:
-        dataset_name (str): Name of the dataset to load. Options are "MNIST", "FMNIST", "EMNIST", "CIFAR10", "CIFAR100".
+        dataset_name (str): Name of the dataset to load. Options:
+            - Image: "MNIST", "FMNIST", "EMNIST", "CIFAR10", "CIFAR100".
+            - UCR time series: "UCR:<name>" for a single dataset (e.g. "UCR:ECG200"),
+              "UCR:ALL" for every dataset in UCR_DATASETS, or "UCR:[name1, name2]" for a
+              specific subset. Dataset names follow the labels at
+              https://www.timeseriesclassification.com/dataset.php.
 
     TODO: EMNIST IS NOT WELL.
 
     Returns:
-        list: [4] of torch.Tensor. [train_images, train_labels, test_images, test_labels]
+        list: [train_features, train_labels, test_features, test_labels] of torch.Tensor.
+            Image datasets have features of shape (N, H, W) or (N, 3, H, W).
+            For a single UCR dataset, features are shaped (N, C, T).
+        dict: When multiple UCR datasets are requested (UCR:ALL or UCR:[...]) the function
+            returns a dict mapping each dataset name to its 4-tensor list.
     '''
+    if dataset_name.startswith(UCR_PREFIX):
+        names = _parse_ucr_selector(dataset_name)
+        if len(names) == 1:
+            return _load_one_ucr(names[0])
+        return {name: _load_one_ucr(name) for name in names}
+
     transform = transforms.Compose([
         transforms.ToTensor(),
     ])

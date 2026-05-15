@@ -67,6 +67,17 @@ def load_split_datasets(
         list: The list of length client_number, each element is a dictionary containing the split dataset.
     """
     set_seed(random_seed)
+
+    if dataset_name.startswith(UCR_PREFIX):
+        raise NotImplementedError(
+            "Non-IID splitting for UCR time series datasets is not implemented yet. "
+            "The image-based shifts (rotation, coloring) used by the existing split "
+            "functions do not apply to time series, and the time-series-specific shifts "
+            "(gaussian noise, amplitude scaling, etc.) are still being designed. "
+            "Use `load_full_datasets(dataset_name)` directly to obtain the raw tensors "
+            "for now."
+        )
+
     train_features, train_labels, test_features, test_labels = load_full_datasets(dataset_name)
 
     if mode == "auto":
@@ -370,6 +381,15 @@ def load_split_datasets_dynamic(
     assert non_iid_type in ["Px","Py","Px_y","Py_x"], "non_iid type not supported"
     
     set_seed(random_seed)
+
+    if dataset_name.startswith(UCR_PREFIX):
+        raise NotImplementedError(
+            "Drifting/dynamic splits for UCR time series datasets are not implemented yet. "
+            "Time-series-specific shifts (gaussian noise, amplitude scaling, etc.) are still "
+            "being designed. Use `load_full_datasets(dataset_name)` directly to obtain the "
+            "raw tensors for now."
+        )
+
     train_features, train_labels, test_features, test_labels = load_full_datasets(dataset_name)
 
     fn = f"split_{drfting_type}_{non_iid_type}"
