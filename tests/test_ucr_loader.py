@@ -79,9 +79,36 @@ class TestSplitGates:
 pytest.importorskip("sktime")
 
 
+class TestUnknownNameHint:
+    '''_unknown_ucr_hint is pure (no network) - it turns a typo'd dataset
+    name into an actionable suggestion instead of the old misleading
+    "variable-length not supported" message.'''
+
+    def test_known_name_gets_no_hint(self):
+        assert utils._unknown_ucr_hint("ECG200") == ""
+
+    def test_typo_suggests_close_matches(self):
+        hint = utils._unknown_ucr_hint("ECG2000")
+        assert "Did you mean" in hint
+        assert "ECG" in hint
+
+    def test_unknown_name_mentions_registry_and_uea(self):
+        # CardiacArrhythmia is not a real archive dataset; the hint must say
+        # so and still acknowledge UEA names like EigenWorms are valid.
+        hint = utils._unknown_ucr_hint("CardiacArrhythmia")
+        assert "not in the known UCR 2018" in hint
+        assert "EigenWorms" in hint
+
+    def test_uea_name_not_in_registry_still_hinted(self):
+        # EigenWorms is a valid UEA dataset but absent from UCR_DATASETS, so
+        # it gets a hint - we must NOT hard-reject it (the loader still tries).
+        assert "EigenWorms" not in utils.UCR_DATASETS
+        assert utils._unknown_ucr_hint("EigenWorms") != ""
+
+
 class TestRandomUCRName:
     def test_unknown_ucr_name_raises_runtime_error(self):
-        with pytest.raises(RuntimeError, match="Failed to load UCR dataset"):
+        with pytest.raises(RuntimeError, match="Failed to load UCR"):
             utils.load_full_datasets("UCR:NotARealDataset_XYZ")
 
 
@@ -135,5 +162,5 @@ class TestMultiUCRLoad:
             assert train_x.dim() == 3
 
     def test_mix_of_correct_and_wrong_raises_runtime_error(self):
-        with pytest.raises(RuntimeError, match="Failed to load UCR dataset"):
+        with pytest.raises(RuntimeError, match="Failed to load UCR"):
             utils.load_full_datasets("UCR:[ECG200, NotARealDataset_XYZ]")

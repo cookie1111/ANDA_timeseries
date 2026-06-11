@@ -104,6 +104,31 @@ def _parse_ucr_selector(dataset_name: str) -> list:
         raise ValueError(f"Missing UCR dataset name in selector: {dataset_name!r}")
     return [spec]
 
+def _unknown_ucr_hint(name: str) -> str:
+    '''Build an actionable hint when a UCR/UEA load fails.
+
+    The single-name selector accepts any string and hands it to sktime, so a
+    typo (e.g. "CardiacArrhythmia", which is not a real archive dataset) only
+    surfaces as a download failure. UEA multivariate names (e.g. EigenWorms)
+    are valid but are NOT in UCR_DATASETS (the UCR 2018 univariate registry),
+    so we must not hard-reject unknown names - we only offer suggestions.
+
+    Returns "" when the name is a known UCR dataset (no hint needed).
+    '''
+    if name in UCR_DATASETS:
+        return ""
+    import difflib
+    close = difflib.get_close_matches(name, UCR_DATASETS, n=3, cutoff=0.5)
+    hint = (
+        f" {name!r} is not in the known UCR 2018 univariate registry. "
+        f"Valid UEA multivariate names (e.g. EigenWorms) are also accepted but "
+        f"must match the labels at timeseriesclassification.com exactly."
+    )
+    if close:
+        hint += f" Did you mean one of: {', '.join(close)}?"
+    return hint
+
+
 def _load_one_ucr(name: str) -> list:
     '''
     Load a single UCR dataset via sktime and return [train_x, train_y, test_x, test_y]
@@ -121,9 +146,10 @@ def _load_one_ucr(name: str) -> list:
         X_test, y_test = load_UCR_UEA_dataset(name=name, split="test", return_type="numpy3D")
     except Exception as e:
         raise RuntimeError(
-            f"Failed to load UCR dataset {name!r} via sktime. "
-            f"Variable-length datasets are not supported by this loader yet. "
-            f"Underlying error: {e}"
+            f"Failed to load UCR/UEA dataset {name!r} via sktime.{_unknown_ucr_hint(name)} "
+            f"This usually means the name is misspelled, the dataset is "
+            f"variable-length (the numpy3D loader does not support those yet), "
+            f"or the download failed. Underlying error: {e}"
         ) from e
 
     all_labels = np.concatenate([np.asarray(y_train), np.asarray(y_test)])
