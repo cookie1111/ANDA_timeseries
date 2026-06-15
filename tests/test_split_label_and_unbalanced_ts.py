@@ -175,6 +175,77 @@ class TestSplitFeatureLabelSkewTS:
             assert c["train_features"].shape[2] == 8
 
 
+class TestLabelSkewImbalancedTailClass:
+    '''Regression for ECG5000 Px_y scaling=1 failing ~15% of the time.
+
+    ECG5000 has 5 classes with counts roughly [292,177,10,19,2] in train
+    and [2627,1593,96,176,8] in test - the tail classes are small enough
+    that a few early clients can fully drain them from the train pool. The
+    pre-fix _calculate_probabilities_ts sized the probability vector from
+    `rem_tr_y.max() + 1`, so once the train tail was gone the vector
+    shrank to len 4. Re-applying that vector to the test pool (which still
+    has class 4) crashed with IndexError on probabilities[4]. Now the
+    callers pin num_classes against the dataset-wide max.
+    '''
+
+    @staticmethod
+    def _ecg5000_like():
+        # Same per-class ratios as ECG5000; counts scaled down for speed.
+        train_counts = [292, 177, 10, 19, 2]
+        test_counts = [2627, 1593, 96, 176, 8]
+        def make(counts):
+            xs, ys = [], []
+            for c, n in enumerate(counts):
+                xs.append(torch.randn(n, 1, 64))
+                ys.append(torch.full((n,), c, dtype=torch.int64))
+            return torch.cat(xs), torch.cat(ys)
+        return make(train_counts) + make(test_counts)
+
+    @pytest.mark.parametrize("seed", [3, 17, 18])  # seeds that crashed pre-fix
+    def test_feature_label_skew_survives_drained_tail(self, seed):
+        anda.set_seed(seed)
+        tr_x, tr_y, te_x, te_y = self._ecg5000_like()
+        clients = split_fn_ts.split_feature_label_skew_ts(
+            tr_x, tr_y, te_x, te_y, client_number=10,
+            transforms_pool=["gaussian_noise", "jitter"],
+            magnitude_buckets=3,
+            scaling_low=0.0, scaling_high=0.3,
+            scaling_label_low=0.1, scaling_label_high=0.3,
+        )
+        assert len(clients) == 10
+
+    @pytest.mark.parametrize("seed", [3, 17, 18])
+    def test_label_skew_survives_drained_tail(self, seed):
+        anda.set_seed(seed)
+        tr_x, tr_y, te_x, te_y = self._ecg5000_like()
+        clients = split_fn_ts.split_label_skew_ts(
+            tr_x, tr_y, te_x, te_y, client_number=10,
+            scaling_label_low=0.6, scaling_label_high=0.8,
+        )
+        assert len(clients) == 10
+
+    def test_calc_probs_vector_pinned_to_dataset_max(self):
+        '''Caller-pinned num_classes wins over the pool's own max+1, so a
+        drained tail doesn't shrink the vector.'''
+        # Pool only has classes {0, 1, 2}; dataset has 5.
+        labels = torch.tensor([0, 0, 1, 2, 2], dtype=torch.int64)
+        probs = split_fn_ts._calculate_probabilities_ts(labels, 0.5, num_classes=5)
+        assert probs.shape == (5,)
+        # No NaN / negatives, softmax still sums to 1.
+        assert torch.isfinite(probs).all()
+        assert abs(float(probs.sum()) - 1.0) < 1e-5
+
+    def test_calc_probs_empty_with_num_classes_returns_uniform(self):
+        '''Defensive: an empty remaining pool used to return an empty
+        tensor; now it returns a uniform vector so create_sub_dataset still
+        sees a probability per class.'''
+        probs = split_fn_ts._calculate_probabilities_ts(
+            torch.tensor([], dtype=torch.int64), 1.0, num_classes=3
+        )
+        assert probs.shape == (3,)
+        assert torch.allclose(probs, torch.full((3,), 1 / 3))
+
+
 class TestSplitFeatureSkewUnbalancedTS:
     def test_basic(self):
         anda.set_seed(0)

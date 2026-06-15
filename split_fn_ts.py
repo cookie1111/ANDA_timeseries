@@ -176,17 +176,34 @@ def _window_pair(
     return tr_x, tr_y, te_x, te_y
 
 
-def _calculate_probabilities_ts(labels: torch.Tensor, scaling: float) -> torch.Tensor:
+def _calculate_probabilities_ts(labels: torch.Tensor, scaling: float,
+                                num_classes: int = None) -> torch.Tensor:
     '''Per-class softmax probabilities scaled by class frequency.
 
     Equivalent to `utils.calculate_probabilities` but auto-sizes the probability
     vector to the number of classes present in `labels` instead of hardcoding 10
     (which is correct for MNIST/CIFAR10 but wrong for UCR datasets with K != 10
-    classes — phantom classes would dilute the softmax).
+    classes - phantom classes would dilute the softmax).
+
+    Args:
+        labels: Current label pool (may be a drained remainder).
+        scaling: Softmax temperature exponent.
+        num_classes: Pin the probability-vector length to the dataset-wide
+            class count. When callers iterate per-client and the pool drains
+            tail classes, sizing from `labels.max() + 1` shrinks the vector,
+            and any downstream user that indexes by the original label space
+            (e.g. the test pool which still has those classes) goes out of
+            bounds. Always pass this from the caller's dataset-wide max.
     '''
     if labels.numel() == 0:
-        return torch.tensor([], dtype=torch.float32)
-    num_classes = int(labels.max().item()) + 1
+        if num_classes is None:
+            return torch.tensor([], dtype=torch.float32)
+        return torch.full((num_classes,), 1.0 / num_classes, dtype=torch.float32)
+    pool_max = int(labels.max().item()) + 1
+    if num_classes is None:
+        num_classes = pool_max
+    else:
+        num_classes = max(num_classes, pool_max)
     label_counts = torch.bincount(labels, minlength=num_classes).float()
     scaled_counts = label_counts ** scaling
     return F.softmax(scaled_counts, dim=0)
@@ -311,12 +328,18 @@ def split_label_skew_ts(
     rem_tr_x, rem_tr_y = train_features, train_labels
     rem_te_x, rem_te_y = test_features, test_labels
 
+    # Dataset-wide class count, pinned now so the probability vector stays
+    # the right size even after the train pool drains tail classes.
+    num_classes_total = int(max(train_labels.max().item(),
+                                 test_labels.max().item())) + 1
+
     rearranged = []
     for cid in range(client_number):
         client_scaling = float(np.random.uniform(scaling_label_low, scaling_label_high))
         # The 0.6 dampening factor here matches split_label_skew's calling convention;
         # it keeps the effective per-client skew comparable to the image version.
-        probs = _calculate_probabilities_ts(rem_tr_y, client_scaling * 0.6)
+        probs = _calculate_probabilities_ts(rem_tr_y, client_scaling * 0.6,
+                                            num_classes=num_classes_total)
 
         sub_tr_x, sub_tr_y, rem_tr_x, rem_tr_y = create_sub_dataset(rem_tr_x, rem_tr_y, probs, avg_tr)
         sub_te_x, sub_te_y, rem_te_x, rem_te_y = create_sub_dataset(rem_te_x, rem_te_y, probs, avg_te)
@@ -369,10 +392,16 @@ def split_feature_label_skew_ts(
     rem_tr_x, rem_tr_y = train_features, train_labels
     rem_te_x, rem_te_y = test_features, test_labels
 
+    # See split_label_skew_ts: pin num_classes so the probs vector keeps the
+    # right length once the train pool drains tail classes.
+    num_classes_total = int(max(train_labels.max().item(),
+                                 test_labels.max().item())) + 1
+
     rearranged = []
     for cid in range(client_number):
         label_scale = float(np.random.uniform(scaling_label_low, scaling_label_high))
-        probs = _calculate_probabilities_ts(rem_tr_y, label_scale)
+        probs = _calculate_probabilities_ts(rem_tr_y, label_scale,
+                                            num_classes=num_classes_total)
 
         sub_tr_x, sub_tr_y, rem_tr_x, rem_tr_y = create_sub_dataset(rem_tr_x, rem_tr_y, probs, avg_tr)
         sub_te_x, sub_te_y, rem_te_x, rem_te_y = create_sub_dataset(rem_te_x, rem_te_y, probs, avg_te)
@@ -484,10 +513,15 @@ def split_label_skew_unbalanced_ts(
     rem_tr_x, rem_tr_y = train_features, train_labels
     rem_te_x, rem_te_y = test_features, test_labels
 
+    # See split_label_skew_ts: pin num_classes against the dataset-wide max.
+    num_classes_total = int(max(train_labels.max().item(),
+                                 test_labels.max().item())) + 1
+
     rearranged = []
     for cid in range(client_number):
         client_scaling = float(np.random.uniform(scaling_label_low, scaling_label_high))
-        probs = _calculate_probabilities_ts(rem_tr_y, client_scaling)
+        probs = _calculate_probabilities_ts(rem_tr_y, client_scaling,
+                                            num_classes=num_classes_total)
 
         n_tr = int(train_counts[cid])
         n_te = int(test_counts[cid])
