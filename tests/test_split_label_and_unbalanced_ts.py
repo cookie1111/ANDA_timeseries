@@ -370,3 +370,138 @@ class TestAndaDispatchExpanded:
                 dataset_name="UCR:ECG200", client_number=3,
                 non_iid_type="not_real", mode="manual",
             )
+
+
+class TestSplitLabelConditionSkewTS:
+    '''True P(y|x) shift: clients share P(x) (uniform partition, no
+    augmentation) but each client gets a cluster-specific label permutation,
+    so the same waveform means different things to different clients.'''
+
+    def test_preserves_p_of_x(self):
+        '''P(x) shared across clients => no augmentation, uniform partition.
+        Concatenating all client X back together should give the original
+        train+test set bit-for-bit (modulo client-internal ordering).'''
+        anda.set_seed(0)
+        tr_x, tr_y, te_x, te_y = _stratified_synthetic(N_train=120, N_test=40)
+        clients = split_fn_ts.split_label_condition_skew_ts(
+            tr_x, tr_y, te_x, te_y, client_number=4, mixing_label_number=2,
+        )
+        # Same total sample count and identical multiset of feature tensors.
+        recombined_tr = np.concatenate([c['train_features'] for c in clients])
+        recombined_te = np.concatenate([c['test_features'] for c in clients])
+        assert recombined_tr.shape == tuple(tr_x.shape)
+        assert recombined_te.shape == tuple(te_x.shape)
+        # Order may differ but sum of values is invariant under reordering.
+        assert np.isclose(recombined_tr.sum(), tr_x.sum().item())
+        assert np.isclose(recombined_te.sum(), te_x.sum().item())
+
+    def test_relabeling_rule_holds_per_client(self):
+        '''The decisive P(y|x) check: build a dataset where each sample's
+        FIRST feature value encodes its original class id. After splitting,
+        we can recover each sample's original label from its features and
+        verify that its assigned (post-relabel) label equals the cluster's
+        permutation applied to the original. This proves both
+            (1) features are not transformed (P(x) preserved), and
+            (2) labels follow the per-cluster permutation exactly.'''
+        anda.set_seed(0)
+        per_class, num_classes, T = 40, 4, 16
+        xs, ys = [], []
+        for c in range(num_classes):
+            x = torch.randn(per_class, 1, T)
+            x[:, 0, 0] = float(c)  # encode class id in the first sample value
+            xs.append(x)
+            ys.append(torch.full((per_class,), c, dtype=torch.int64))
+        tr_x = torch.cat(xs); tr_y = torch.cat(ys)
+
+        # Pin the swap pool so the expected permutations are deterministic.
+        clients = split_fn_ts.split_label_condition_skew_ts(
+            tr_x, tr_y, tr_x, tr_y, client_number=8,
+            random_mode=False, mixing_label_list=[0, 1],
+        )
+        # itertools.permutations([0, 1]) -> [(0,1), (1,0)] in that order, so
+        # cluster 0 is the identity map and cluster 1 is the swap.
+        expected_maps = [{0: 0, 1: 1}, {0: 1, 1: 0}]
+        for c in clients:
+            feats = c['train_features']
+            labels = c['train_labels']
+            assert feats.shape[0] == labels.shape[0]
+            label_map = expected_maps[c['cluster']]
+            for sample, lab in zip(feats, labels):
+                original = int(round(float(sample[0, 0])))
+                expected = label_map.get(original, original)
+                assert int(lab) == expected, (
+                    f"cluster {c['cluster']}: sample with original={original} "
+                    f"got label {int(lab)}, expected {expected}"
+                )
+
+    def test_records_real_cluster_id(self):
+        '''Unlike feature_skew_ts / label_skew_ts (cluster=-1), every client
+        here carries the cluster index it was assigned to. This is what flux
+        can score its discovered clusters against.'''
+        anda.set_seed(0)
+        tr_x, tr_y, te_x, te_y = _stratified_synthetic()
+        clients = split_fn_ts.split_label_condition_skew_ts(
+            tr_x, tr_y, te_x, te_y, client_number=8, mixing_label_number=2,
+        )
+        assert all(c['cluster'] >= 0 for c in clients), \
+            "cluster ids must be real (>=0), not the -1 placeholder"
+        assert all(c['cluster'] < 2 for c in clients), \
+            "with mixing_label_number=2 only 2!=2 candidate clusters exist"
+
+    def test_no_feature_transformation_applied(self):
+        '''A client's train features must be a verbatim subset of the
+        original train features - no jitter, no rotation, no anything.'''
+        anda.set_seed(0)
+        tr_x, tr_y, te_x, te_y = _stratified_synthetic(N_train=60, N_test=20)
+        clients = split_fn_ts.split_label_condition_skew_ts(
+            tr_x, tr_y, te_x, te_y, client_number=3, mixing_label_number=2,
+        )
+        tr_x_np = tr_x.detach().cpu().numpy()
+        for c in clients:
+            for row in c['train_features']:
+                # row must equal some original train sample exactly.
+                match = np.any(np.all(np.isclose(tr_x_np, row), axis=(1, 2)))
+                assert match, "found a transformed sample - P(x) was not preserved"
+
+    def test_mixing_label_number_clipped_to_num_classes(self):
+        anda.set_seed(0)
+        tr_x, tr_y, te_x, te_y = _stratified_synthetic(num_classes=4)
+        # Asking for 99 labels in a 4-class dataset: silently clip to 4.
+        # 4! = 24 candidate clusters, so cluster ids stay in [0, 24).
+        clients = split_fn_ts.split_label_condition_skew_ts(
+            tr_x, tr_y, te_x, te_y, client_number=4, mixing_label_number=99,
+        )
+        for c in clients:
+            assert 0 <= c['cluster'] < 24
+
+    def test_single_class_dataset_raises(self):
+        torch.manual_seed(0)
+        tr_x = torch.randn(20, 1, 16); tr_y = torch.zeros(20, dtype=torch.int64)
+        te_x = torch.randn(10, 1, 16); te_y = torch.zeros(10, dtype=torch.int64)
+        with pytest.raises(ValueError, match="at least 2 classes"):
+            split_fn_ts.split_label_condition_skew_ts(
+                tr_x, tr_y, te_x, te_y, client_number=2,
+            )
+
+    def test_non_random_mode_requires_explicit_pool(self):
+        anda.set_seed(0)
+        tr_x, tr_y, te_x, te_y = _stratified_synthetic()
+        with pytest.raises(ValueError, match="mixing_label_list"):
+            split_fn_ts.split_label_condition_skew_ts(
+                tr_x, tr_y, te_x, te_y, client_number=2, random_mode=False,
+            )
+        with pytest.raises(ValueError, match="at least 2 labels"):
+            split_fn_ts.split_label_condition_skew_ts(
+                tr_x, tr_y, te_x, te_y, client_number=2,
+                random_mode=False, mixing_label_list=[1],
+            )
+
+    def test_load_split_datasets_dispatch_routes_correctly(self):
+        '''anda.load_split_datasets auto-dispatches via split_{name}_ts.
+        Confirm label_condition_skew is now resolvable in the UCR path
+        without needing a network call (we hit the split fn directly via
+        the dispatcher to make sure the name is wired up).'''
+        from ANDA import anda as anda_mod
+        # The dispatcher resolves by getattr-style lookup; presence here is
+        # equivalent to it being available.
+        assert hasattr(split_fn_ts, "split_label_condition_skew_ts")

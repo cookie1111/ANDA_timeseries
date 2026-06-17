@@ -1,4 +1,5 @@
 from collections import Counter, defaultdict
+import itertools
 
 import numpy as np
 import torch
@@ -539,5 +540,137 @@ def split_label_skew_unbalanced_ts(
             sub_tr_x, sub_tr_y, sub_te_x, sub_te_y, window_size, stride, drop_last,
         )
         rearranged.append(_pack_client(sub_tr_x, sub_tr_y, sub_te_x, sub_te_y))
+
+    return rearranged
+
+
+def split_label_condition_skew_ts(
+    train_features: torch.Tensor,
+    train_labels: torch.Tensor,
+    test_features: torch.Tensor,
+    test_labels: torch.Tensor,
+    client_number: int = 10,
+    mixing_label_number: int = 2,
+    mixing_label_list: list = None,
+    random_mode: bool = True,
+    window_size: int = None,
+    stride: int = None,
+    drop_last: bool = True,
+    verbose: bool = False,
+) -> list:
+    '''Time-series counterpart of `split_label_condition_skew_strict`: a true
+    P(y|x) shift.
+
+    Clients share P(x): the data is partitioned uniformly across clients with
+    no feature augmentation. They differ in P(y|x): each client is assigned to
+    a cluster, and each cluster owns a deterministic permutation of a subset
+    of labels (the "swap pool"). All samples in a client whose label lies in
+    the pool get relabeled according to that permutation; labels outside the
+    pool are untouched. Different clients with the same cluster see the same
+    re-labeling rule (real ground-truth cluster structure - finally
+    addresses the missing-cluster-labels gap from docs §4.2 for the Py_x
+    axis).
+
+    Strength is controlled by `mixing_label_number`: with K labels in the
+    pool there are K! permutations, so K! candidate clusters. K=2 yields the
+    minimal binary swap (identity + transposition); higher K gives more
+    diverse re-labeling rules.
+
+    No feature augmentation is applied (P(x) is preserved across clients),
+    which is what makes this a genuine P(y|x) shift rather than a joint
+    label-dominant skew. If you want P(x) variation on top, layer a feature
+    augmentation pass post-hoc or use feature_label_skew_ts.
+
+    Args:
+        train_features, train_labels: TS train pool of shape (N, C, T) and (N,).
+        test_features, test_labels: TS test pool, same shapes.
+        client_number: Number of clients to produce.
+        mixing_label_number: Size of the swap pool. Clipped to
+            max(2, ..., num_classes_total) so binary swaps still work on
+            two-class datasets and the pool never exceeds the label space.
+        mixing_label_list: Explicit swap pool (list of label ids). Overrides
+            random sampling. Useful for reproducible non-IID setups across
+            datasets with different class IDs.
+        random_mode: If True, sample mixing_label_list uniformly from the
+            label space; if False, mixing_label_list must be provided.
+        window_size, stride, drop_last: Optional windowing pass applied to
+            each client's (X, y) at the end - same semantics as the other
+            *_ts splits.
+
+    Returns:
+        list of n_clients dicts with keys train_features, train_labels,
+        test_features, test_labels, cluster. The cluster field is the index
+        into the enumerated permutation list, which means callers can
+        compare flux's inferred clusters against a real ground truth here
+        (unlike feature_skew_ts / label_skew_ts / feature_label_skew_ts
+        where cluster=-1).
+    '''
+    _validate_ts_inputs(train_features, train_labels, test_features, test_labels)
+    if client_number < 1:
+        raise ValueError("client_number must be >= 1.")
+
+    num_classes_total = int(max(train_labels.max().item(),
+                                 test_labels.max().item())) + 1
+    if num_classes_total < 2:
+        raise ValueError("Need at least 2 classes for a P(y|x) shift.")
+
+    # Resolve the swap pool. Cap at num_classes_total so we don't ask for more
+    # labels than exist; cap at >=2 so there's at least one non-identity
+    # permutation. Datasets with very few classes simply get a smaller pool.
+    if random_mode:
+        pool_size = max(2, min(int(mixing_label_number), num_classes_total))
+        mixing_label_list = np.random.choice(
+            num_classes_total, size=pool_size, replace=False
+        ).tolist()
+    else:
+        if not mixing_label_list:
+            raise ValueError("Non-random mode requires a mixing_label_list.")
+        if len(mixing_label_list) != len(set(mixing_label_list)):
+            raise ValueError("mixing_label_list must not contain duplicates.")
+        if any(not (0 <= int(v) < num_classes_total) for v in mixing_label_list):
+            raise ValueError(
+                f"mixing_label_list values must lie in [0, {num_classes_total})."
+            )
+        if len(mixing_label_list) < 2:
+            raise ValueError("mixing_label_list must contain at least 2 labels.")
+        mixing_label_list = [int(v) for v in mixing_label_list]
+
+    # Enumerate all permutations of the pool. Each becomes one cluster.
+    all_label_maps = [
+        dict(zip(mixing_label_list, perm))
+        for perm in itertools.permutations(mixing_label_list)
+    ]
+
+    if verbose:
+        print(f"label_condition_skew_ts: pool={mixing_label_list}, "
+              f"{len(all_label_maps)} candidate clusters.")
+
+    # Partition the data uniformly across clients (no skew on P(x) or P(y)).
+    basic_train = split_basic(train_features, train_labels, client_number)
+    basic_test = split_basic(test_features, test_labels, client_number)
+
+    rearranged = []
+    for cid in range(client_number):
+        cluster_id = int(np.random.randint(0, len(all_label_maps)))
+        label_map = all_label_maps[cluster_id]
+
+        sub_tr_x = basic_train[cid]['features']
+        sub_te_x = basic_test[cid]['features']
+        sub_tr_y = basic_train[cid]['labels'].clone()
+        sub_te_y = basic_test[cid]['labels'].clone()
+
+        # Apply the cluster's permutation to in-pool labels only.
+        for original, permuted in label_map.items():
+            sub_tr_y[basic_train[cid]['labels'] == original] = permuted
+            sub_te_y[basic_test[cid]['labels'] == original] = permuted
+
+        if verbose:
+            print(f"  client {cid} -> cluster {cluster_id} (map={label_map})")
+
+        sub_tr_x, sub_tr_y, sub_te_x, sub_te_y = _window_pair(
+            sub_tr_x, sub_tr_y, sub_te_x, sub_te_y, window_size, stride, drop_last,
+        )
+        rearranged.append(_pack_client(sub_tr_x, sub_tr_y, sub_te_x, sub_te_y,
+                                       cluster=cluster_id))
 
     return rearranged
