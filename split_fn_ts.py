@@ -674,3 +674,148 @@ def split_label_condition_skew_ts(
                                        cluster=cluster_id))
 
     return rearranged
+
+
+def split_feature_condition_skew_ts(
+    train_features: torch.Tensor,
+    train_labels: torch.Tensor,
+    test_features: torch.Tensor,
+    test_labels: torch.Tensor,
+    client_number: int = 10,
+    targeted_label_number: int = 1,
+    targeted_label_list: list = None,
+    transforms_pool: list = None,
+    magnitude_buckets: int = 3,
+    custom_buckets: dict = None,
+    random_mode: bool = True,
+    window_size: int = None,
+    stride: int = None,
+    drop_last: bool = True,
+    verbose: bool = False,
+) -> list:
+    '''Time-series counterpart of `split_feature_condition_skew_strict`: a true
+    P(x|y) shift.
+
+    Clients share P(y) (uniform partition via split_basic, which permutes
+    before slicing). For each cluster a deterministic (transform, bucket)
+    signature is fixed: every client in cluster k applies that signature to
+    samples whose label is in the targeted pool, leaving non-targeted samples
+    untouched. So P(x | y not in pool) is shared across clusters, while
+    P(x | y in pool) differs by cluster.
+
+    Image-side analog (`split_feature_condition_skew_strict`) factors the
+    cluster signature over two orthogonal axes -- rotation X colour -- and
+    targets a separate label list for each. TS has only one augmentation
+    axis (the transform pool), so this implementation collapses that to one
+    pool + one targeted-label list. The defining property (P(y) shared,
+    P(x | y in pool) differs by cluster) is preserved exactly.
+
+    Strength is controlled by the cluster count, which equals len(_build_pool
+    (transforms_pool, magnitude_buckets, custom_buckets)). More transforms
+    or more buckets => more candidate clusters => more diverse P(x|y) maps.
+
+    Args:
+        train_features, train_labels: TS train pool of shape (N, C, T)/(N,).
+        test_features, test_labels: TS test pool, same shapes.
+        client_number: Number of clients.
+        targeted_label_number: Size of the targeted-label pool. Clipped to
+            min(targeted_label_number, num_classes_total - 1) so at least
+            one label remains untargeted (otherwise the shift collapses to
+            split_feature_skew_ts).
+        targeted_label_list: Explicit targeted pool; overrides random_mode.
+        transforms_pool: Names of registered transforms. Cluster signatures
+            are the (transform, bucket) pairs expanded from this pool.
+        magnitude_buckets: How many bucket presets per transform to keep.
+        custom_buckets: Override the bucket dict per transform.
+        random_mode: If True, sample targeted_label_list uniformly.
+        window_size, stride, drop_last: Optional windowing pass.
+
+    Returns:
+        list of n_clients dicts with train/test features+labels and a real
+        cluster index (>=0) - same convention as split_label_condition_skew_ts,
+        which means flux/feroma can compute extrinsic clustering metrics
+        (ARI / NMI / purity) against ground truth on this shift too.
+    '''
+    _validate_ts_inputs(train_features, train_labels, test_features, test_labels)
+    if client_number < 1:
+        raise ValueError("client_number must be >= 1.")
+    if not transforms_pool:
+        raise ValueError("transforms_pool must be a non-empty list of transform names.")
+
+    num_classes_total = int(max(train_labels.max().item(),
+                                 test_labels.max().item())) + 1
+    if num_classes_total < 2:
+        raise ValueError("Need at least 2 classes for a P(x|y) shift.")
+
+    # Resolve targeted pool. Clip below num_classes_total so at least one
+    # untouched label remains; clip at >=1 so there's something to skew.
+    max_targeted = max(1, num_classes_total - 1)
+    if random_mode:
+        pool_size = max(1, min(int(targeted_label_number), max_targeted))
+        targeted_label_list = np.random.choice(
+            num_classes_total, size=pool_size, replace=False
+        ).tolist()
+    else:
+        if not targeted_label_list:
+            raise ValueError("Non-random mode requires a targeted_label_list.")
+        if len(targeted_label_list) != len(set(targeted_label_list)):
+            raise ValueError("targeted_label_list must not contain duplicates.")
+        if any(not (0 <= int(v) < num_classes_total) for v in targeted_label_list):
+            raise ValueError(
+                f"targeted_label_list values must lie in [0, {num_classes_total})."
+            )
+        if len(targeted_label_list) >= num_classes_total:
+            raise ValueError(
+                "targeted_label_list must leave at least one untouched label; "
+                f"got {len(targeted_label_list)} of {num_classes_total} classes."
+            )
+        targeted_label_list = [int(v) for v in targeted_label_list]
+
+    # Enumerate cluster signatures from the (transform, bucket) pool.
+    pool = _build_pool(transforms_pool, magnitude_buckets, custom_buckets)
+    if len(pool) < 2:
+        raise ValueError(
+            "Need >= 2 cluster signatures. Expand transforms_pool or raise "
+            "magnitude_buckets."
+        )
+
+    if verbose:
+        print(f"feature_condition_skew_ts: targeted_labels={targeted_label_list}, "
+              f"{len(pool)} candidate clusters.")
+
+    # Uniform partition (split_basic permutes by default => P(y) shared).
+    basic_train = split_basic(train_features, train_labels, client_number)
+    basic_test = split_basic(test_features, test_labels, client_number)
+
+    rearranged = []
+    targeted_set = set(targeted_label_list)
+    for cid in range(client_number):
+        cluster_id = int(np.random.randint(0, len(pool)))
+        name, kwargs = pool[cluster_id]
+
+        sub_tr_x = basic_train[cid]['features'].clone()
+        sub_te_x = basic_test[cid]['features'].clone()
+        sub_tr_y = basic_train[cid]['labels']
+        sub_te_y = basic_test[cid]['labels']
+
+        # Apply the cluster's transform ONLY to in-pool labels. Out-of-pool
+        # samples pass through unchanged - that's the defining property.
+        for label in targeted_set:
+            tr_mask = (sub_tr_y == label)
+            te_mask = (sub_te_y == label)
+            if tr_mask.any():
+                sub_tr_x[tr_mask] = apply_transform(sub_tr_x[tr_mask], name, kwargs)
+            if te_mask.any():
+                sub_te_x[te_mask] = apply_transform(sub_te_x[te_mask], name, kwargs)
+
+        if verbose:
+            print(f"  client {cid} -> cluster {cluster_id} "
+                  f"(transform={name}, kwargs={kwargs})")
+
+        sub_tr_x, sub_tr_y, sub_te_x, sub_te_y = _window_pair(
+            sub_tr_x, sub_tr_y, sub_te_x, sub_te_y, window_size, stride, drop_last,
+        )
+        rearranged.append(_pack_client(sub_tr_x, sub_tr_y, sub_te_x, sub_te_y,
+                                       cluster=cluster_id))
+
+    return rearranged

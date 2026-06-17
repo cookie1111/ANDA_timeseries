@@ -505,3 +505,167 @@ class TestSplitLabelConditionSkewTS:
         # The dispatcher resolves by getattr-style lookup; presence here is
         # equivalent to it being available.
         assert hasattr(split_fn_ts, "split_label_condition_skew_ts")
+
+
+class TestSplitFeatureConditionSkewTS:
+    '''True P(x|y) shift: clients share P(y) (uniform partition with
+    permutation), but each cluster owns a fixed (transform, bucket) signature
+    that is applied ONLY to samples whose label is in the targeted pool.
+    Out-of-pool samples pass through unchanged.'''
+
+    @staticmethod
+    def _label_encoded_synthetic(per_class=40, num_classes=4, T=32):
+        '''Build a dataset where each sample's FIRST feature value equals
+        its class id. This lets the relabel/transform tests recover the
+        original label from features alone.'''
+        xs, ys = [], []
+        for c in range(num_classes):
+            x = torch.randn(per_class, 1, T)
+            x[:, 0, 0] = float(c)
+            xs.append(x)
+            ys.append(torch.full((per_class,), c, dtype=torch.int64))
+        return torch.cat(xs), torch.cat(ys)
+
+    def test_preserves_p_of_y(self):
+        '''P(y) shared via uniform random partition (split_basic permutes).
+        Concatenating all clients back gives the original total counts.'''
+        anda.set_seed(0)
+        tr_x, tr_y = self._label_encoded_synthetic()
+        te_x, te_y = self._label_encoded_synthetic(per_class=20)
+        clients = split_fn_ts.split_feature_condition_skew_ts(
+            tr_x, tr_y, te_x, te_y, client_number=4,
+            targeted_label_number=1,
+            transforms_pool=["gaussian_noise", "jitter"],
+            magnitude_buckets=3,
+        )
+        recombined_y = np.concatenate([c['train_labels'] for c in clients])
+        orig_y = tr_y.detach().cpu().numpy()
+        from collections import Counter
+        assert Counter(recombined_y.tolist()) == Counter(orig_y.tolist())
+
+    def test_out_of_pool_samples_untouched(self):
+        '''The decisive structural check. Samples whose label is NOT in the
+        targeted pool must pass through verbatim - their first-feature class
+        encoding remains recoverable.'''
+        anda.set_seed(0)
+        tr_x, tr_y = self._label_encoded_synthetic()
+        clients = split_fn_ts.split_feature_condition_skew_ts(
+            tr_x, tr_y, tr_x, tr_y, client_number=6,
+            targeted_label_number=1, random_mode=False,
+            targeted_label_list=[0],
+            transforms_pool=["gaussian_noise", "jitter"], magnitude_buckets=3,
+        )
+        for c in clients:
+            feats = c['train_features']; labs = c['train_labels']
+            mask = labs != 0  # everything not in the targeted pool
+            if not mask.any():
+                continue
+            encoded = np.round(feats[mask, 0, 0]).astype(int)
+            assert np.array_equal(encoded, labs[mask]), (
+                f"cluster {c['cluster']}: out-of-pool samples were modified"
+            )
+
+    def test_in_pool_samples_are_actually_transformed(self):
+        '''Symmetric to the above: targeted samples should NOT pass through
+        verbatim, otherwise the cluster signature would be a no-op.'''
+        anda.set_seed(0)
+        tr_x, tr_y = self._label_encoded_synthetic()
+        clients = split_fn_ts.split_feature_condition_skew_ts(
+            tr_x, tr_y, tr_x, tr_y, client_number=6,
+            targeted_label_number=1, random_mode=False,
+            targeted_label_list=[0],
+            transforms_pool=["gaussian_noise"], magnitude_buckets=3,
+        )
+        # At least one client should have an in-pool sample whose first
+        # feature value differs from the integer 0 (because gaussian noise
+        # was added). With per_class=40 and at least one client receiving a
+        # class-0 sample, this should virtually always hold.
+        any_modified = False
+        for c in clients:
+            feats = c['train_features']; labs = c['train_labels']
+            mask = labs == 0
+            if not mask.any():
+                continue
+            encoded = feats[mask, 0, 0]
+            if not np.allclose(encoded, 0.0, atol=1e-6):
+                any_modified = True
+                break
+        assert any_modified, "no in-pool sample was actually transformed"
+
+    def test_records_real_cluster_id(self):
+        '''Real cluster indices, like split_label_condition_skew_ts. This is
+        what flux/feroma can score their discovered clusters against.'''
+        anda.set_seed(0)
+        tr_x, tr_y = self._label_encoded_synthetic()
+        clients = split_fn_ts.split_feature_condition_skew_ts(
+            tr_x, tr_y, tr_x, tr_y, client_number=6,
+            targeted_label_number=1,
+            transforms_pool=["gaussian_noise", "jitter"], magnitude_buckets=3,
+        )
+        # 2 transforms x 3 buckets = 6 candidate cluster signatures.
+        assert all(0 <= c['cluster'] < 6 for c in clients)
+        assert all(c['cluster'] >= 0 for c in clients)
+
+    def test_targeted_label_number_clipped_below_num_classes(self):
+        '''A targeted pool that swallows all classes would collapse this to
+        feature_skew_ts. Clip to num_classes_total - 1 so at least one
+        untouched label remains.'''
+        anda.set_seed(0)
+        tr_x, tr_y = self._label_encoded_synthetic(num_classes=4)
+        clients = split_fn_ts.split_feature_condition_skew_ts(
+            tr_x, tr_y, tr_x, tr_y, client_number=4,
+            targeted_label_number=99,  # absurdly high; should clip to 3
+            transforms_pool=["gaussian_noise", "jitter"], magnitude_buckets=3,
+        )
+        # Run completed without raising - the clip kicked in.
+        assert len(clients) == 4
+
+    def test_non_random_mode_requires_full_pool(self):
+        anda.set_seed(0)
+        tr_x, tr_y = self._label_encoded_synthetic()
+        with pytest.raises(ValueError, match="targeted_label_list"):
+            split_fn_ts.split_feature_condition_skew_ts(
+                tr_x, tr_y, tr_x, tr_y, client_number=2,
+                random_mode=False,
+                transforms_pool=["gaussian_noise"], magnitude_buckets=3,
+            )
+        # Asking to target every class is rejected too - leaves nothing
+        # un-shifted.
+        with pytest.raises(ValueError, match="at least one untouched"):
+            split_fn_ts.split_feature_condition_skew_ts(
+                tr_x, tr_y, tr_x, tr_y, client_number=2,
+                random_mode=False, targeted_label_list=[0, 1, 2, 3],
+                transforms_pool=["gaussian_noise"], magnitude_buckets=3,
+            )
+
+    def test_empty_transforms_pool_raises(self):
+        anda.set_seed(0)
+        tr_x, tr_y = self._label_encoded_synthetic()
+        with pytest.raises(ValueError, match="transforms_pool"):
+            split_fn_ts.split_feature_condition_skew_ts(
+                tr_x, tr_y, tr_x, tr_y, client_number=2,
+                targeted_label_number=1, transforms_pool=[],
+                magnitude_buckets=3,
+            )
+
+    def test_single_class_dataset_raises(self):
+        torch.manual_seed(0)
+        tr_x = torch.randn(20, 1, 16); tr_y = torch.zeros(20, dtype=torch.int64)
+        with pytest.raises(ValueError, match="at least 2 classes"):
+            split_fn_ts.split_feature_condition_skew_ts(
+                tr_x, tr_y, tr_x, tr_y, client_number=2,
+                targeted_label_number=1,
+                transforms_pool=["gaussian_noise"], magnitude_buckets=3,
+            )
+
+    def test_too_few_cluster_signatures_raises(self):
+        '''With 1 transform and 1 bucket there's only 1 cluster signature -
+        every client would be in the same cluster, so there's no shift.'''
+        anda.set_seed(0)
+        tr_x, tr_y = self._label_encoded_synthetic()
+        with pytest.raises(ValueError, match="cluster signatures"):
+            split_fn_ts.split_feature_condition_skew_ts(
+                tr_x, tr_y, tr_x, tr_y, client_number=2,
+                targeted_label_number=1,
+                transforms_pool=["gaussian_noise"], magnitude_buckets=1,
+            )
