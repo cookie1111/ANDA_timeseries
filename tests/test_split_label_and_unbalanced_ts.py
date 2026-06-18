@@ -448,6 +448,33 @@ class TestSplitLabelConditionSkewTS:
         assert all(c['cluster'] < 2 for c in clients), \
             "with mixing_label_number=2 only 2!=2 candidate clusters exist"
 
+    def test_mixing_label_number_one_is_iid_baseline(self):
+        '''mixing_label_number=1 -> 1! = 1 identity cluster -> NO relabeling.
+        This is the image-side scaling=1 baseline (label_condition_skew sets
+        mixing_label_number = scaling). Every client must keep its original
+        labels and all land in cluster 0.'''
+        anda.set_seed(0)
+        # Encode original class id in the first feature value so we can verify
+        # nothing was relabeled.
+        per_class, num_classes, T = 30, 4, 16
+        xs, ys = [], []
+        for c in range(num_classes):
+            x = torch.randn(per_class, 1, T)
+            x[:, 0, 0] = float(c)
+            xs.append(x)
+            ys.append(torch.full((per_class,), c, dtype=torch.int64))
+        tr_x = torch.cat(xs); tr_y = torch.cat(ys)
+        clients = split_fn_ts.split_label_condition_skew_ts(
+            tr_x, tr_y, tr_x, tr_y, client_number=6, mixing_label_number=1,
+        )
+        assert all(c['cluster'] == 0 for c in clients), \
+            "mixing_label_number=1 must yield a single identity cluster"
+        for c in clients:
+            feats = c['train_features']; labs = c['train_labels']
+            original = np.round(feats[:, 0, 0]).astype(int)
+            assert np.array_equal(original, labs), \
+                "IID baseline must not relabel any sample"
+
     def test_no_feature_transformation_applied(self):
         '''A client's train features must be a verbatim subset of the
         original train features - no jitter, no rotation, no anything.'''

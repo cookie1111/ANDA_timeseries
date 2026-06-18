@@ -572,9 +572,10 @@ def split_label_condition_skew_ts(
     axis).
 
     Strength is controlled by `mixing_label_number`: with K labels in the
-    pool there are K! permutations, so K! candidate clusters. K=2 yields the
+    pool there are K! permutations, so K! candidate clusters. K=1 yields a
+    single identity cluster (no shift -- the IID baseline). K=2 yields the
     minimal binary swap (identity + transposition); higher K gives more
-    diverse re-labeling rules.
+    diverse re-labeling rules, growing factorially.
 
     No feature augmentation is applied (P(x) is preserved across clients),
     which is what makes this a genuine P(y|x) shift rather than a joint
@@ -585,9 +586,9 @@ def split_label_condition_skew_ts(
         train_features, train_labels: TS train pool of shape (N, C, T) and (N,).
         test_features, test_labels: TS test pool, same shapes.
         client_number: Number of clients to produce.
-        mixing_label_number: Size of the swap pool. Clipped to
-            max(2, ..., num_classes_total) so binary swaps still work on
-            two-class datasets and the pool never exceeds the label space.
+        mixing_label_number: Size of the swap pool. Clamped to
+            [1, num_classes_total]; 1 is the IID baseline (single identity
+            cluster) and the pool never exceeds the label space.
         mixing_label_list: Explicit swap pool (list of label ids). Overrides
             random sampling. Useful for reproducible non-IID setups across
             datasets with different class IDs.
@@ -615,10 +616,12 @@ def split_label_condition_skew_ts(
         raise ValueError("Need at least 2 classes for a P(y|x) shift.")
 
     # Resolve the swap pool. Cap at num_classes_total so we don't ask for more
-    # labels than exist; cap at >=2 so there's at least one non-identity
-    # permutation. Datasets with very few classes simply get a smaller pool.
+    # labels than exist; floor at 1 so mixing_label_number=1 is the IID
+    # baseline (1! = 1 identity permutation = no shift), matching the
+    # image-side label_condition_skew where scaling=1 -> mixing_label_number=1.
+    # Datasets with very few classes simply get a smaller pool.
     if random_mode:
-        pool_size = max(2, min(int(mixing_label_number), num_classes_total))
+        pool_size = max(1, min(int(mixing_label_number), num_classes_total))
         mixing_label_list = np.random.choice(
             num_classes_total, size=pool_size, replace=False
         ).tolist()
