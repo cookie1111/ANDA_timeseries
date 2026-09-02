@@ -50,7 +50,6 @@ class TestRegistry:
         with pytest.raises(KeyError, match="Unknown transform"):
             transforms_ts.apply_transform(_sample_batch(), "definitely_not_registered")
 
-
 class TestShapePreservation:
     @pytest.mark.parametrize("name", BUILTINS)
     def test_output_shape_matches_input(self, name):
